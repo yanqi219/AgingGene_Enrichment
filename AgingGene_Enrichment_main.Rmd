@@ -1,0 +1,293 @@
+---
+title: "AgingGene_Enrichment"
+author: "Qi Yan"
+date: "07/28/2021"
+output: 
+  html_notebook:
+    toc: TRUE # table of content true
+    toc_depth: 3  # upto three depths of headings (specified by #, ## and ###)
+    toc_float: true
+    number_sections: FALSE
+    theme: united  
+    highlight: tango
+    df_print: paged
+    code_folding: show
+---
+
+<style type="text/css">
+
+.main-container {
+  max-width: 2200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+body{ /* Normal  */
+      font-size: 16px;
+  }
+h1.title {
+  color: DarkRed;
+}
+h1 { /* Header 1 */
+  color: DarkBlue;
+}
+h2 { /* Header 2 */
+  color: DarkBlue;
+}
+h3 { /* Header 3 */
+  color: DarkBlue;
+}
+  
+</style>
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(anRichment)
+library(xlsx)
+library(tidyverse)
+library(WGCNA)
+library(ggpubr)
+
+options(stringsAsFactors = FALSE)
+allowWGCNAThreads()
+```
+
+https://horvath.genetics.ucla.edu/html/CoexpressionNetwork/GeneAnnotation/
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+GOcollection = buildGOcollection(organism = "human")
+
+```
+
+## Summary of the reference database
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+main_reference <- read.table(file = "D:/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Reference_Database/Aging_Gene_Database_main.tsv", sep = "\t")
+colnames(main_reference) <- main_reference[1,]
+main_reference <- main_reference[-1,]
+
+main_reference <- 
+  main_reference %>%
+  dplyr::mutate(study = gsub("^([^_]+(?:_[^_]+){3}).*","\\1", Reference))
+
+# Total number of records
+print(paste("Total number of records: ", nrow(main_reference), sep = ""))
+
+# Number of studies
+print(paste("Number of studies: ", length(unique(main_reference$study)), sep = ""))
+print(unique(main_reference$study))
+
+# Number of unique species
+print(paste("Number of unique species: ", length(unique(main_reference$Organism)), sep = ""))
+print(unique(main_reference$Organism))
+
+# Total number of tables
+print(paste("Total number of gene sets (tables): ", length(unique(main_reference$Reference)), sep = ""))
+
+# Number of unique genes
+print(paste("Number of unique genes: ", length(unique(main_reference$`Gene Symbol`)), sep = ""))
+
+# Number of unique cell types
+print(paste("Number of unique cell types: ", length(unique(main_reference$Cell)), sep = " "))
+
+# organism * study
+statistics <- 
+  main_reference %>%
+  dplyr::select(Organism, study) %>%
+  distinct(Organism, study, .keep_all = T) %>%
+  group_by(Organism) %>%
+  summarise(n=n())
+
+labs <- paste0(statistics$Organism, " (", round(statistics$n/sum(statistics$n)*100,1), "%)")
+ggpubr::ggpie(statistics, "n", label = labs,
+              lab.pos = "in", lab.font = "white",
+              fill = "Organism", color = "white", legend = "right", title = "Percentage of Species")
+
+# Type * study
+statistics <- 
+  main_reference %>%
+  dplyr::select(Type, study) %>%
+  distinct(Type, study, .keep_all = T) %>%
+  group_by(Type) %>%
+  summarise(n=n())
+
+labs <- paste0(statistics$Type, " (", round(statistics$n/sum(statistics$n)*100,1), "%)")
+ggpubr::ggpie(statistics, "n", label = labs,
+              lab.pos = "in", lab.font = "white",
+              fill = "Type", color = "white", legend = "right", title = "Percentage of Type of RNA-seq")
+
+# Genes per study and tissue
+statistics <- 
+  main_reference %>%
+  group_by(study, Tissue) %>%
+  summarise(n = n())
+
+ggplot(statistics, aes(fill=Tissue, y=n, x=study)) + 
+  geom_bar(position="stack", stat="identity") + 
+  ggtitle("Genes per study and tissue") +
+  theme(axis.text.x = element_text(angle = 315), axis.text=element_text(size=12),
+        axis.title=element_text(size=14,face="bold"))
+
+# Genes per gene set/table
+statistics <- 
+  main_reference %>%
+  group_by(Reference) %>%
+  summarise(n = n())
+
+ggplot(statistics, aes(x=Reference, y=n)) +
+  geom_segment(aes(x=Reference, xend=Reference, y=0, yend=n), color="skyblue") +
+  geom_point( color="blue", size=4, alpha=0.6) +
+  ggtitle("Genes per gene set/table") +
+  theme_light() +
+  coord_flip() +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank()
+  ) +
+  scale_y_continuous(breaks=seq(0,4500,100))
+```
+
+
+## Ortholog Genes
+
+Need to get an Orthology tables between different species. Got orthology data from various sources: 
+
+* 1) Based on https://rdrr.io/bioc/annotationTools/man/getHOMOLOG.html, got homologene.data provided by www.ncbi.nlm.nih.gov/HomoloGene, also, orthologs defined in NCBI's 'Orthologs from Annotation pipeline' database (available at ftp.ncbi.nlm.nih.gov/gene/DATA/gene_orthologs.gz, and hence referred to as 'gene_orthologs'). There's also a R package: https://github.com/oganm/homologene. 
+
+* 2) Based on 10.1101/gr.240093.118, and https://github.com/BenayounLaboratory/Mouse_Aging_Epigenomics_2018/tree/master/Figure5_Conservation/Pathway_enrichment/Orthology, I downloaded ortholog maps between mouse, rat, killifish, and human. 
+
+* 3) Also based on Fushan et al. Data S6, I got groups of orthologous sequences assayed in the study.
+
+* 4) From Adriana's file
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+ncbi_ortho <- read.table(file = "D:/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/NCBI_gene_orthologs.txt", sep = "\t", header = T)
+# list_of_tax <- as.data.frame(unique(c(ncbi_ortho$tax_id, ncbi_ortho$Other_tax_id)))
+# temp <- write.table(list_of_tax, file = "C:/Users/QiYan/Desktop/temp.txt", col.names = T, row.names = F, sep = "\t", quote = F)
+tax_id <- read.table(file = "D:/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/Taxonomy_ID.txt", sep = "\t", header = T)
+```
+
+Check the bias of array, do the permutation test randomly select ~ 200 CpGs
+
+## Miscellaneous
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# format S tables
+
+## Type I
+temp <- xlsx::read.xlsx(file = "C:/Users/QiYan/Desktop/temp3.xlsx", sheetIndex = 1)
+temp2 <- 
+  temp %>%
+  dplyr::rename(Cell = celltype) %>%
+  dplyr::rename(Gene.Symbol = gene) %>%
+  dplyr::mutate(Reference = paste("Zhang_2021_MF_snT_ST2", Cell, sep = "_")) %>%
+  dplyr::mutate(Tissue = "Hippocampus ") %>%
+  dplyr::mutate(Technology = "Transcriptomes") %>%
+  dplyr::mutate(Organism = "Macaca fascicularis") %>%
+  dplyr::mutate(Type = "snRNA") %>%
+  dplyr::mutate(Trait = "Chronological age") %>%
+  dplyr::select(Gene.Symbol, Reference, Technology, Organism, Tissue, Cell, Type, Trait)
+
+write.csv(temp2, file = "C:/Users/QiYan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
+
+colnames(temp2)
+
+## Type II
+temp <- xlsx::read.xlsx(file = "C:/Users/QiYan/Desktop/temp3.xlsx", sheetIndex = 1)
+
+temp2 <- as.data.frame(unique(unlist(strsplit(temp$Gene, "/"))))
+colnames(temp2) <- "Gene"
+write.csv(temp2, file = "C:/Users/QiYan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
+
+## Type III
+temp <- xlsx::read.xlsx(file = "C:/Users/QiYan/Desktop/temp3.xlsx", sheetIndex = 1)
+
+temp2 <- 
+  temp %>%
+  dplyr::mutate(Reference = paste("Schaum_2020_MM_T_ST3_cluster", ClusterID, sep = "")) %>%
+  dplyr::mutate(Tissue = "Multiple ") %>%
+  dplyr::mutate(Technology = "Transcriptomics; Proteomics") %>%
+  dplyr::mutate(Organism = "Mus musculus") %>%
+  dplyr::mutate(Cell = "Bulk") %>%
+  dplyr::mutate(Type = "Bulk; scRNA") %>%
+  dplyr::mutate(Trait = "Chronological age; Gene expression dynamics with age") %>%
+  dplyr::mutate(Note = "Whole-organism gene expression trajectory clustering") %>%
+  dplyr::select(Gene.Symbol, Reference, Technology, Organism, Tissue, Cell, Type, Trait, Note)
+
+write.csv(temp2, file = "C:/Users/QiYan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
+
+## Type IV
+temp <- xlsx::read.xlsx(file = "C:/Users/QiYan/Desktop/temp3.xlsx", sheetIndex = 1)
+
+temp2 <- 
+  temp %>%
+  dplyr::select(-c(numSig, SigInOne)) %>%
+  tidyr::gather(Cell, P_value, -c(gene.name)) %>%
+  mutate(Cell = substr(Cell,1,nchar(Cell)-10)) %>%
+  dplyr::filter(P_value < 0.1) %>%
+  dplyr::select(-P_value) %>%
+  dplyr::mutate(Reference = paste("Angelidis_2019_MM_TP_ST5_", Cell, sep = "")) %>%
+  dplyr::rename(Gene.Symbol = gene.name) %>%
+  dplyr::mutate(Tissue = "Lung ") %>%
+  dplyr::mutate(Technology = "Transcriptomics; Proteomics") %>%
+  dplyr::mutate(Organism = "Mus musculus") %>%
+  # dplyr::mutate(Cell = "Multiple") %>%
+  dplyr::mutate(Type = "scRNA") %>%
+  dplyr::mutate(Trait = "Chronological age") %>%
+  dplyr::mutate(Note = "Cell type-resolved differential gene expression testing between age groups in the single cell data (FDR < 0.1)") %>%
+  dplyr::select(Gene.Symbol, Reference, Technology, Organism, Tissue, Cell, Type, Trait, Note)
+
+write.csv(temp2, file = "C:/Users/QiYan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
+
+## Type V
+temp <- xlsx::read.xlsx(file = "C:/Users/QiYan/Desktop/temp3.xlsx", sheetIndex = 1)
+# temp <- read.table(file = "C:/Users/QiYan/Desktop/temp3.txt", sep = "\t")
+# colnames(temp) <- temp[1,]
+# temp <- temp[-1,]
+
+temp2 <- 
+  temp %>%
+  tidyr::gather(Cell, P_value, -c(Gene)) %>%
+  dplyr::filter(!is.na(P_value)) %>%
+  dplyr::select(-P_value) %>%
+  # dplyr::mutate(Cell = gsub(".*:","",Cell)) %>%
+  dplyr::mutate(Reference = paste("Ximerakis_2019_MM_scT_ST8_neuronal_", Cell, sep = "")) %>%
+  # dplyr::mutate(Tissue = gsub("\\..*","",Cell)) %>%
+  dplyr::mutate(Tissue = "Brain") %>%
+  dplyr::rename(Gene.Symbol = Gene) %>%
+  dplyr::mutate(Technology = "Transcriptomics") %>%
+  dplyr::mutate(Organism = "Mus_musculus") %>%
+  # dplyr::mutate(Cell = "Multiple") %>%
+  dplyr::mutate(Type = "scRNA") %>%
+  dplyr::mutate(Trait = "Chronological age") %>%
+  dplyr::mutate(Note = "Aging-related genes (FDR < 0.05 and FC > 10%) from 3 major neurotransmitter-expressing neuronal subtypes") %>%
+  dplyr::select(Gene.Symbol, Reference, Technology, Organism, Tissue, Cell, Type, Trait, Note)
+
+unique(temp2$Cell)
+# nrow(temp2[which(temp2$Cell == "global_aging"),])
+
+write.csv(temp2, file = "C:/Users/QiYan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
+# write.table(temp2, file = "D:/dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Reference_Database/TabulaMurisSenisZhang_2021_MM_scT_ST2FACS.txt", row.names = F, col.names = T, quote = F, sep = "\t")
+
+## Type VI
+temp <- xlsx::read.xlsx(file = "C:/Users/QiYan/Desktop/temp3.xlsx", sheetIndex = 1)
+
+temp2 <- 
+  temp %>%
+  dplyr::mutate(gene2 = gsub("\\(.*","",Gene)) %>%
+  dplyr::mutate(Reference = "Baumgart_2014_NF_T_ST1_Brain") %>%
+  dplyr::mutate(Tissue = "Brain") %>%
+  dplyr::mutate(Cell = "Bulk") %>%
+  dplyr::rename(Gene.Symbol = Gene) %>%
+  dplyr::mutate(Technology = "Transcriptomics") %>%
+  dplyr::mutate(Organism = "Nothobranchius_furzeri") %>%
+  dplyr::mutate(Type = "Bulk") %>%
+  dplyr::mutate(Trait = "Chronological age") %>%
+  dplyr::mutate(Note = "DEGs as the intersection of three independent statistical tests in at least one of all pairwise comparisons between the age-groups") %>%
+  dplyr::select(Gene.Symbol, Reference, Technology, Organism, Tissue, Cell, Type, Trait, Note)
+
+write.csv(temp2, file = "C:/Users/QiYan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
+
+```
