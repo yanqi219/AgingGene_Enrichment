@@ -57,13 +57,12 @@ https://horvath.genetics.ucla.edu/html/CoexpressionNetwork/GeneAnnotation/
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 GOcollection = buildGOcollection(organism = "human")
-
 ```
 
 ## Summary of the reference database
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-main_reference <- read.table(file = "D:/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Reference_Database/Aging_Gene_Database_main.tsv", sep = "\t")
+main_reference <- read.table(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Reference_Database/Aging_Gene_Database_main.tsv", sep = "\t")
 colnames(main_reference) <- main_reference[1,]
 main_reference <- main_reference[-1,]
 
@@ -149,10 +148,9 @@ ggplot(statistics, aes(x=Reference, y=n)) +
   scale_y_continuous(breaks=seq(0,4500,100))
 ```
 
-
 ## Ortholog Genes
 
-Need to get an Orthology tables between different species. Got orthology data from various sources: 
+__STEP 1. Need to get an Orthology tables between different species. Got orthology data from various sources__ 
 
 * 1) Based on https://rdrr.io/bioc/annotationTools/man/getHOMOLOG.html, got homologene.data provided by www.ncbi.nlm.nih.gov/HomoloGene, also, orthologs defined in NCBI's 'Orthologs from Annotation pipeline' database (available at ftp.ncbi.nlm.nih.gov/gene/DATA/gene_orthologs.gz, and hence referred to as 'gene_orthologs'). There's also a R package: https://github.com/oganm/homologene. 
 
@@ -162,12 +160,342 @@ Need to get an Orthology tables between different species. Got orthology data fr
 
 * 4) From Adriana's file
 
+__STEP 2. First generate files for gene ID conversion__
+
+https://www.biostars.org/p/49606/, https://www.biostars.org/p/446641/， https://yiweiniu.github.io/blog/2018/09/Biological-ID-Conversion/, https://www.bioconductor.org/help/course-materials/2019/BSS2019/05_Annotations.html#biomart
+
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-ncbi_ortho <- read.table(file = "D:/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/NCBI_gene_orthologs.txt", sep = "\t", header = T)
+################
+# Use biomaRt, however it relies on ensembl which doesn't have all the entrez ID information
+################
+
+library("biomaRt")
+
+mart = useMart('ensembl')
+listDatasets(mart)
+
+# hsapiens_gene_ensembl, mmusculus_gene_ensembl, nfurzeri_gene_ensembl, mfascicularis_gene_ensembl, rnorvegicus_gene_ensembl
+
+# Human
+human = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+listAttributes(human)
+genes <- getBM(attributes=c("external_gene_name", "hgnc_symbol","entrezgene_id", "description", "chromosome_name", "start_position", "end_position", "strand", "version", "ensembl_gene_id", "hgnc_id"), mart = human)
+write.csv(genes, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/hsapiens.csv", col.names = T, row.names = F)
+
+# Mouse
+mouse = useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+listAttributes(mouse)
+genes <- getBM(attributes=c("external_gene_name", "mgi_symbol","entrezgene_id", "description", "chromosome_name", "start_position", "end_position", "strand", "version", "ensembl_gene_id", "mgi_id"), mart = mouse)
+write.csv(genes, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mmusculus.csv", col.names = T, row.names = F)
+
+# Killifish
+killifish = useMart("ensembl", dataset = "nfurzeri_gene_ensembl")
+listAttributes(killifish)
+genes <- getBM(attributes=c("external_gene_name","entrezgene_id", "description", "chromosome_name", "start_position", "end_position", "strand", "version", "ensembl_gene_id"), mart = killifish)
+write.csv(genes, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/nfurzeri.csv", col.names = T, row.names = F)
+
+# Macaque
+macaque = useMart("ensembl", dataset = "mfascicularis_gene_ensembl")
+listAttributes(macaque)
+genes <- getBM(attributes=c("external_gene_name","entrezgene_id", "description", "chromosome_name", "start_position", "end_position", "strand", "version", "ensembl_gene_id"), mart = macaque)
+write.csv(genes, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mfascicularis.csv", col.names = T, row.names = F)
+
+# Rat
+rat = useMart("ensembl", dataset = "rnorvegicus_gene_ensembl")
+listAttributes(rat)
+genes <- getBM(attributes=c("external_gene_name","entrezgene_id", "description", "chromosome_name", "start_position", "end_position", "strand", "version", "ensembl_gene_id"), mart = rat)
+write.csv(genes, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/rnorvegicus.csv", col.names = T, row.names = F)
+
+################
+# Use AnnotationHub to get the rest of the entrez ID or symbol
+################
+
+# https://seandavi.github.io/ITR/AnnotationHub.html#non-model_organism_gene_annotations
+
+library(AnnotationHub)
+query(AnnotationHub(), "^org\\.")
+ah <- AnnotationHub()
+
+# Macaca fascicularis
+sub_ah = query(ah, c("OrgDb", "Macaca fascicularis"))
+sub_ah
+orgdb <- query(sub_ah, "OrgDb")[[1]]
+columns(orgdb)
+keytypes(orgdb) # Type of variables than can be used as keys
+
+original <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mfascicularis.csv", header = T) # read the csv file which contains missing entrez ID and entrez symbol
+symbol <- 
+  original %>%
+  dplyr::select(external_gene_name) %>%
+  dplyr::filter(!is.na(external_gene_name)) %>%
+  unique() # get all the gene symbol listed in the csv file and search the orgdb
+cols <- c("SYMBOL", "ENTREZID")
+map <- 
+  select(orgdb, keys=symbol$external_gene_name, columns=cols, keytype="SYMBOL") %>%
+  dplyr::filter(!is.na(ENTREZID)) # link it back to the csv file
+original <- 
+  original %>%
+  dplyr::left_join(map, by = c("external_gene_name" = "SYMBOL")) %>%
+  dplyr::mutate(entrezgene_id = ifelse(is.na(entrezgene_id), ENTREZID, entrezgene_id)) %>%
+  dplyr::select(!ENTREZID)
+id <- 
+  original %>%
+  dplyr::select(entrezgene_id) %>%
+  dplyr::filter(!is.na(entrezgene_id)) %>%
+  unique() # get all the gene id listed in the csv file and search the orgdb
+cols <- c("SYMBOL", "ENTREZID")
+map <- 
+  select(orgdb, keys=id$entrezgene_id, columns=cols, keytype="ENTREZID") %>%
+  dplyr::filter(!is.na(SYMBOL)) # link it back to the csv file
+original <- 
+  original %>%
+  dplyr::left_join(map, by = c("entrezgene_id" = "ENTREZID")) %>%
+  dplyr::mutate(external_gene_name = ifelse(external_gene_name == "", SYMBOL, external_gene_name)) %>%
+  dplyr::select(!SYMBOL)
+write.csv(original, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mfascicularis.csv", col.names = T, row.names = F) # save it back
+
+# Nothobranchius furzeri
+sub_ah = query(ah, c("OrgDb", "Nothobranchius furzeri"))
+sub_ah
+orgdb <- query(sub_ah, "OrgDb")[[1]]
+columns(orgdb)
+keytypes(orgdb) # Type of variables than can be used as keys
+
+original <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/nfurzeri.csv", header = T) # read the csv file which contains missing entrez ID and entrez symbol
+symbol <- 
+  original %>%
+  dplyr::select(external_gene_name) %>%
+  dplyr::filter(!is.na(external_gene_name)) %>%
+  unique() # get all the gene symbol listed in the csv file and search the orgdb
+cols <- c("SYMBOL", "ENTREZID")
+map <- 
+  select(orgdb, keys=symbol$external_gene_name, columns=cols, keytype="SYMBOL") %>%
+  dplyr::filter(!is.na(ENTREZID)) # link it back to the csv file
+original <- 
+  original %>%
+  dplyr::left_join(map, by = c("external_gene_name" = "SYMBOL")) %>%
+  dplyr::mutate(entrezgene_id = ifelse(is.na(entrezgene_id), ENTREZID, entrezgene_id)) %>%
+  dplyr::select(!ENTREZID)
+id <- 
+  original %>%
+  dplyr::select(entrezgene_id) %>%
+  dplyr::filter(!is.na(entrezgene_id)) %>%
+  unique() # get all the gene id listed in the csv file and search the orgdb
+cols <- c("SYMBOL", "ENTREZID")
+map <- 
+  select(orgdb, keys=id$entrezgene_id, columns=cols, keytype="ENTREZID") %>%
+  dplyr::filter(!is.na(SYMBOL)) # link it back to the csv file
+original <- 
+  original %>%
+  dplyr::left_join(map, by = c("entrezgene_id" = "ENTREZID")) %>%
+  dplyr::mutate(external_gene_name = ifelse(external_gene_name == "", SYMBOL, external_gene_name)) %>%
+  dplyr::select(!SYMBOL)
+write.csv(original, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/nfurzeri.csv", col.names = T, row.names = F) # save it back
+
+# Rattus Norvegicus
+sub_ah = query(ah, c("OrgDb", "Rattus Norvegicus"))
+sub_ah
+orgdb <- query(sub_ah, "OrgDb")[[1]]
+columns(orgdb)
+keytypes(orgdb) # Type of variables than can be used as keys
+
+original <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/rnorvegicus.csv", header = T) # read the csv file which contains missing entrez ID and entrez symbol
+symbol <- 
+  original %>%
+  dplyr::select(external_gene_name) %>%
+  dplyr::filter(!is.na(external_gene_name)) %>%
+  unique() # get all the gene symbol listed in the csv file and search the orgdb
+cols <- c("SYMBOL", "ENTREZID")
+map <- 
+  select(orgdb, keys=symbol$external_gene_name, columns=cols, keytype="SYMBOL") %>%
+  dplyr::filter(!is.na(ENTREZID)) # link it back to the csv file
+original <- 
+  original %>%
+  dplyr::left_join(map, by = c("external_gene_name" = "SYMBOL")) %>%
+  dplyr::mutate(entrezgene_id = ifelse(is.na(entrezgene_id), ENTREZID, entrezgene_id)) %>%
+  dplyr::select(!ENTREZID)
+id <- 
+  original %>%
+  dplyr::select(entrezgene_id) %>%
+  dplyr::filter(!is.na(entrezgene_id)) %>%
+  unique() # get all the gene id listed in the csv file and search the orgdb
+cols <- c("SYMBOL", "ENTREZID")
+map <- 
+  select(orgdb, keys=id$entrezgene_id, columns=cols, keytype="ENTREZID") %>%
+  dplyr::filter(!is.na(SYMBOL)) # link it back to the csv file
+original <- 
+  original %>%
+  dplyr::left_join(map, by = c("entrezgene_id" = "ENTREZID")) %>%
+  dplyr::mutate(external_gene_name = ifelse(external_gene_name == "", SYMBOL, external_gene_name)) %>%
+  dplyr::select(!SYMBOL)
+write.csv(original, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/rnorvegicus.csv", col.names = T, row.names = F) # save it back
+
+# Mus musculus
+sub_ah = query(ah, c("OrgDb", "Mus musculus"))
+sub_ah
+orgdb <- query(sub_ah, "OrgDb")[[1]]
+columns(orgdb)
+keytypes(orgdb) # Type of variables than can be used as keys
+
+original <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mmusculus.csv", header = T) # read the csv file which contains missing entrez ID and entrez symbol
+symbol <- 
+  original %>%
+  dplyr::select(external_gene_name) %>%
+  dplyr::filter(!is.na(external_gene_name)) %>%
+  unique() # get all the gene symbol listed in the csv file and search the orgdb
+cols <- c("SYMBOL", "ENTREZID")
+map <- 
+  select(orgdb, keys=symbol$external_gene_name, columns=cols, keytype="SYMBOL") %>%
+  dplyr::filter(!is.na(ENTREZID)) # link it back to the csv file
+original <- 
+  original %>%
+  dplyr::left_join(map, by = c("external_gene_name" = "SYMBOL")) %>%
+  dplyr::mutate(entrezgene_id = ifelse(is.na(entrezgene_id), ENTREZID, entrezgene_id)) %>%
+  dplyr::select(!ENTREZID)
+id <- 
+  original %>%
+  dplyr::select(entrezgene_id) %>%
+  dplyr::filter(!is.na(entrezgene_id)) %>%
+  unique() # get all the gene id listed in the csv file and search the orgdb
+cols <- c("SYMBOL", "ENTREZID")
+map <- 
+  select(orgdb, keys=id$entrezgene_id, columns=cols, keytype="ENTREZID") %>%
+  dplyr::filter(!is.na(SYMBOL)) # link it back to the csv file
+original <- 
+  original %>%
+  dplyr::left_join(map, by = c("entrezgene_id" = "ENTREZID")) %>%
+  dplyr::mutate(external_gene_name = ifelse(external_gene_name == "", SYMBOL, external_gene_name)) %>%
+  dplyr::select(!SYMBOL)
+write.csv(original, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mmusculus.csv", col.names = T, row.names = F) # save it back
+
+# Homo sapiens
+sub_ah = query(ah, c("OrgDb", "Homo sapiens"))
+sub_ah
+orgdb <- query(sub_ah, "OrgDb")[[1]]
+columns(orgdb)
+keytypes(orgdb) # Type of variables than can be used as keys
+
+original <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/hsapiens.csv", header = T) # read the csv file which contains missing entrez ID and entrez symbol
+symbol <- 
+  original %>%
+  dplyr::select(external_gene_name) %>%
+  dplyr::filter(!is.na(external_gene_name)) %>%
+  unique() # get all the gene symbol listed in the csv file and search the orgdb
+cols <- c("SYMBOL", "ENTREZID")
+map <- 
+  select(orgdb, keys=symbol$external_gene_name, columns=cols, keytype="SYMBOL") %>%
+  dplyr::filter(!is.na(ENTREZID)) # link it back to the csv file
+original <- 
+  original %>%
+  dplyr::left_join(map, by = c("external_gene_name" = "SYMBOL")) %>%
+  dplyr::mutate(entrezgene_id = ifelse(is.na(entrezgene_id), ENTREZID, entrezgene_id)) %>%
+  dplyr::select(!ENTREZID)
+id <- 
+  original %>%
+  dplyr::select(entrezgene_id) %>%
+  dplyr::filter(!is.na(entrezgene_id)) %>%
+  unique() # get all the gene id listed in the csv file and search the orgdb
+cols <- c("SYMBOL", "ENTREZID")
+map <- 
+  select(orgdb, keys=id$entrezgene_id, columns=cols, keytype="ENTREZID") %>%
+  dplyr::filter(!is.na(SYMBOL)) # link it back to the csv file
+original <- 
+  original %>%
+  dplyr::left_join(map, by = c("entrezgene_id" = "ENTREZID")) %>%
+  dplyr::mutate(external_gene_name = ifelse(external_gene_name == "", SYMBOL, external_gene_name)) %>%
+  dplyr::select(!SYMBOL)
+write.csv(original, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/hsapiens.csv", col.names = T, row.names = F) # save it back
+
+# x = c("Tll1", "Tlx3") # gene list to lift over
+# genesV2 = getLDS(attributes = c("rgd_symbol"), 
+#                  filters = "rgd_symbol", 
+#                  values = x , 
+#                  mart = rat, 
+#                  attributesL = c("hgnc_symbol"), 
+#                  martL = human, 
+#                  uniqueRows=T)
+# 
+# library(msigdbr)
+# m_df = msigdbr(species = "Rattus norvegicus")
+# m_df = msigdbr(species = "Macaca fascicularis")
+# m_df_sub = m_df[,c(5,8)] # select only the gene ids necessary
+# m_df_sub_dis = distinct(m_df_sub) # remove non unqique rows
+```
+
+__STEP 3. Organize ortholog gene database__
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+rat <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/rnorvegicus.csv", header = T) %>%
+  dplyr::select(external_gene_name, entrezgene_id) %>%
+  dplyr::filter(!is.na(entrezgene_id))
+mouse <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mmusculus.csv", header = T) %>%
+  dplyr::select(external_gene_name, entrezgene_id) %>%
+  dplyr::filter(!is.na(entrezgene_id))
+human <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/hsapiens.csv", header = T) %>%
+  dplyr::select(external_gene_name, entrezgene_id) %>%
+  dplyr::filter(!is.na(entrezgene_id))
+macaque <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mfascicularis.csv", header = T) %>%
+  dplyr::select(external_gene_name, entrezgene_id) %>%
+  dplyr::filter(!is.na(entrezgene_id))
+killifish <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/nfurzeri.csv", header = T) %>%
+  dplyr::select(external_gene_name, entrezgene_id) %>%
+  dplyr::filter(!is.na(entrezgene_id))
+
+# Import NCBI ortholog file, which contains gene list for 376 taxonomies.
+ncbi_ortho <- read.table(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/NCBI_gene_orthologs.txt", sep = "\t", header = T)
 # list_of_tax <- as.data.frame(unique(c(ncbi_ortho$tax_id, ncbi_ortho$Other_tax_id)))
 # temp <- write.table(list_of_tax, file = "C:/Users/QiYan/Desktop/temp.txt", col.names = T, row.names = F, sep = "\t", quote = F)
-tax_id <- read.table(file = "D:/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/Taxonomy_ID.txt", sep = "\t", header = T)
+# Also import tax ID
+tax_id <- read.table(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/Taxonomy_ID.txt", sep = "\t", header = T) %>%
+  dplyr::select(taxid, taxname)
+# Link the tax id w/ ncbi_ortho, and only keeps human, mouse, rat, killifish, and crab-eating macaque
+targeted_tax <- c("Homo sapiens", "Rattus norvegicus", "Mus musculus", "Macaca fascicularis", "Nothobranchius furzeri")
+
+ncbi_ortho_trimmed <-
+  ncbi_ortho %>%
+  dplyr::left_join(tax_id, by = c("tax_id" = "taxid")) %>%
+  dplyr::mutate(tax_id = taxname) %>%
+  dplyr::select(-taxname) %>%
+  dplyr::rename(taxname_primary = "tax_id") %>%
+  dplyr::left_join(tax_id, by = c("Other_tax_id" = "taxid")) %>%
+  dplyr::mutate(Other_tax_id = taxname) %>%
+  dplyr::select(-taxname) %>%
+  dplyr::rename(taxname_other = "Other_tax_id") %>%
+  dplyr::filter(taxname_other %in% targeted_tax)
+
+# Create two maps, one maps all the genes to human genome, and one maps all the genes to mouse genome
+ncbi_ortho_human <- 
+  ncbi_ortho_trimmed %>%
+  dplyr::filter(taxname_primary == "Homo sapiens")
+ncbi_ortho_mouse <- 
+  ncbi_ortho_trimmed %>%
+  dplyr::filter(taxname_primary == "Mus musculus")
+
+# link ortholog maps with gene id/symbol file
+ncbi_ortho_human_wide <- 
+  ncbi_ortho_human %>%
+  spread(taxname_other, Other_GeneID) %>% # long to wide
+  dplyr::rename(Homo_sapiens_entrezID = "GeneID")
+colnames(ncbi_ortho_human_wide) <- c("taxname_primary", "Homo_sapiens_entrezID", "relationship", "Macaca_fascicularis_entrezID", "Mus_musculus_entrezID", "Nothobranchius_furzeri_entrezID", "Rattus_norvegicus_entrezID")
+ncbi_ortho_human_wide <- 
+  ncbi_ortho_human_wide %>%
+  dplyr::left_join(human, by = c("Homo_sapiens_entrezID" = "entrezgene_id")) %>% # human
+  dplyr::rename(Homo_sapiens_symbol = "external_gene_name") %>%
+  dplyr::left_join(mouse, by = c("Mus_musculus_entrezID" = "entrezgene_id")) %>% # mouse
+  dplyr::rename(Mus_musculus_symbol = "external_gene_name") %>%
+  dplyr::left_join(rat, by = c("Rattus_norvegicus_entrezID" = "entrezgene_id")) %>% # rat
+  dplyr::rename(Rattus_norvegicus_symbol = "external_gene_name") %>%
+  dplyr::left_join(killifish, by = c("Nothobranchius_furzeri_entrezID" = "entrezgene_id")) %>% # killifish
+  dplyr::rename(Nothobranchius_furzeri_symbol = "external_gene_name") %>%
+  dplyr::left_join(macaque, by = c("Macaca_fascicularis_entrezID" = "entrezgene_id")) %>% # macaque
+  dplyr::rename(Macaca_fascicularis_symbol = "external_gene_name")
+write.csv(ncbi_ortho_human_wide, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/ncbi_ortho_human_wide_final.csv", col.names = T, row.names = F)
 ```
+
+
+
+a) Need a ortholog gene map
+b) Need a gene id - gene symbol conversion tool for all species
 
 Check the bias of array, do the permutation test randomly select ~ 200 CpGs
 
@@ -269,7 +597,7 @@ unique(temp2$Cell)
 # nrow(temp2[which(temp2$Cell == "global_aging"),])
 
 write.csv(temp2, file = "C:/Users/QiYan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
-# write.table(temp2, file = "D:/dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Reference_Database/TabulaMurisSenisZhang_2021_MM_scT_ST2FACS.txt", row.names = F, col.names = T, quote = F, sep = "\t")
+# write.table(temp2, file = "/Users/qiyan/dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Reference_Database/TabulaMurisSenisZhang_2021_MM_scT_ST2FACS.txt", row.names = F, col.names = T, quote = F, sep = "\t")
 
 ## Type VI
 temp <- xlsx::read.xlsx(file = "C:/Users/QiYan/Desktop/temp3.xlsx", sheetIndex = 1)
