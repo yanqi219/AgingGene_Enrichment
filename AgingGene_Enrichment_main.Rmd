@@ -2,13 +2,17 @@
 title: "AgingGene_Enrichment"
 author: "Qi Yan"
 date: "07/28/2021"
-output: 
+output:
+  html_document:
+    toc: yes
+    toc_depth: '3'
+    df_print: paged
   html_notebook:
-    toc: TRUE # table of content true
-    toc_depth: 3  # upto three depths of headings (specified by #, ## and ###)
-    toc_float: true
-    number_sections: FALSE
-    theme: united  
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    number_sections: no
+    theme: united
     highlight: tango
     df_print: paged
     code_folding: show
@@ -53,16 +57,10 @@ options(stringsAsFactors = FALSE)
 allowWGCNAThreads()
 ```
 
-https://horvath.genetics.ucla.edu/html/CoexpressionNetwork/GeneAnnotation/
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-GOcollection = buildGOcollection(organism = "human")
-```
-
 ## Summary of the reference database
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-main_reference <- read.table(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Reference_Database/Aging_Gene_Database_main.tsv", sep = "\t")
+main_reference <- read.table(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/Aging_Gene_Database_main.tsv", sep = "\t")
 colnames(main_reference) <- main_reference[1,]
 main_reference <- main_reference[-1,]
 
@@ -148,9 +146,114 @@ ggplot(statistics, aes(x=Reference, y=n)) +
   scale_y_continuous(breaks=seq(0,4500,100))
 ```
 
+### Construct database
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+#################
+# Original
+#################
+
+twas_anno <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/TWASDataAnnotation.csv", header = T) # This part won't be useful after record 347.
+main_reference <- read.table(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/Raw/Aging_Gene_Database_main.tsv", sep = "\t", header = T)
+
+# Make annotation file and rwa file consistent, bc there are some datasets tested multiple trait, need to make the name of those datasets unique
+# twas_anno <- twas_anno %>% dplyr::mutate(Reference = ifelse(Reference == "Zhang_2021_MM_scT_ST3_stem cell/progenitor_Age", "Zhang_2021_MM_scT_ST3_stem cell_Age", Reference))
+# main_reference <- main_reference %>% dplyr::mutate(Reference = ifelse(Reference == "Zhang_2021_MM_scT_ST3_stem cell/progenitor_Age", "Zhang_2021_MM_scT_ST3_stem cell_Age", Reference))
+# twas_anno <- twas_anno %>% dplyr::mutate(Reference2 = paste(Reference, Trait, sep = ""))
+# main_reference <- main_reference %>% dplyr::mutate(Reference2 = paste(Reference, Trait, sep = ""))
+# main_reference <- 
+#   main_reference %>% 
+#   dplyr::left_join(twas_anno[,c("Reference2", "Category")], by = "Reference2") %>% 
+#   dplyr::mutate(Reference = paste(Reference, Category, sep = "_")) %>%
+#   dplyr::select(-Reference2)
+# twas_anno <- twas_anno %>% 
+#   dplyr::mutate(Reference = paste(Reference, Category, sep = "_")) %>%
+#   dplyr::select(-Reference2)
+# write.csv(twas_anno, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/TWASDataAnnotation.csv", col.names = T, row.names = F, quote = F)
+# write.table(main_reference, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/Raw/Aging_Gene_Database_main.tsv", col.names = T, row.names = F, quote = F, sep = "\t")
+
+# Add file dir into twas annotation file
+twas_anno <-
+  twas_anno %>%
+  dplyr::mutate(data = paste(Index, "_", Reference, ".csv.gz", sep = ""))
+
+# Extract each gene set and write csv.gz file
+for (i in 1:nrow(twas_anno)) {
+  temp <-
+    main_reference %>%
+    dplyr::filter(Reference == twas_anno$Reference[i]) %>%
+    dplyr::select(Gene.Symbol, Reference)
+  fname <- paste("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/", twas_anno$data[i], sep = "")
+  readr::write_csv(temp, file = fname, col_names = T)
+}
+
+#############
+# Add GenAge database
+#############
+
+GenAge <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/Raw/human_genes_GenAge/genage_human.csv", header = T)
+GenAge <- GenAge %>%
+    dplyr::mutate(Reference = "GenAge_HS_Age") %>%
+    dplyr::rename(Gene.Symbol = "symbol")
+readr::write_csv(GenAge, path = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/634_GenAge_HS_Age.csv.gz", col_names = T)
+
+#############
+# Add GEO data obtained from enrichr
+#############
+geo_up <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/Raw/Aging_Perturbations_from_GEO_up.csv", header = F) %>%
+  dplyr::select(-2)
+geo_down <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/Raw/Aging_Perturbations_from_GEO_down.csv", header = F) %>%
+  dplyr::select(-2)
+## generate a annotation file same as the TWASAnnotation
+Reference <- geo_up %>%
+  dplyr::select(V1) %>%
+  dplyr::rename(Reference = "V1") %>%
+  dplyr::mutate(Reference = gsub(":", "_", Reference)) %>%
+  dplyr::mutate(PMID = Reference) %>% # create PMID which is actually GEO
+  dplyr::mutate(PMID = stringr::str_extract(PMID, "[^ ]+\\s+aging_")) %>%
+  dplyr::mutate(PMID = gsub("\\s.*", "", PMID)) %>%
+  dplyr::mutate(Reference = gsub("\\s+[^ ]+\\s+aging_", "_", Reference)) %>%
+  dplyr::mutate(Note = "GEO crowdsourcing project from PMID 27141961") %>%
+  dplyr::mutate(Organism = gsub(" .*", "", Reference)) %>% # add species
+  dplyr::mutate(Organism = ifelse(Organism == "Human", "Homo_sapiens", ifelse(Organism == "Rat", "Rattus_norvegicus", ifelse(Organism == "Mouse", "Mus_musculus", Organism)))) %>%
+  dplyr::mutate(Category = "Age") %>%
+  dplyr::mutate(Trait = "Chronological age") %>%
+  dplyr::mutate(Index = 348:(nrow(.)+347)) %>%
+  dplyr::mutate(Reference = gsub("/", "or", Reference)) %>% # Some changes for file name
+  dplyr::mutate(Reference = gsub(",", "", Reference))
+
+# Add file dir into twas annotation file
+Reference <-
+  Reference %>%
+  dplyr::mutate(data = paste(Index, "_", Reference, ".csv.gz", sep = ""))
+
+# Extract each gene set and write csv.gz file
+for (i in 1:nrow(Reference)) {
+  temp_up <-
+    geo_up[i,-1] %>%
+    t() %>%
+    as.data.frame()
+  temp_down <-
+    geo_down[i,-1] %>%
+    t() %>%
+    as.data.frame()
+  temp <- rbind(temp_up, temp_down)
+  colnames(temp) <- "Gene.Symbol"
+  temp <- temp %>%
+    dplyr::mutate(Reference = Reference$Reference[i]) %>%
+    dplyr::filter(!is.na(Gene.Symbol) & Gene.Symbol!= "")
+
+  fname <- paste("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/", Reference$data[i], sep = "")
+  readr::write_csv(temp, path = fname, col_names = T)
+}
+write.csv(Reference, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/geoDataAnnotation_ready2comb.csv", row.names = F, quote = F)
+```
+
 ## Ortholog Genes
 
-__STEP 1. Need to get an Orthology tables between different species. Got orthology data from various sources__ 
+Because the reference database contains multiple species, in order to check the overlap/enrichment between our targeted gene list (most likely human/mouse genes derived from GWAS/EWAS) and the reference database, we need to construct a ortholog gene map, and map targeted gene list to ortholog genes in the correspondent species. 
+
+### STEP 1. Need to get an Orthology tables between different species. Got orthology data from various sources
 
 * 1) Based on https://rdrr.io/bioc/annotationTools/man/getHOMOLOG.html, got homologene.data provided by www.ncbi.nlm.nih.gov/HomoloGene, also, orthologs defined in NCBI's 'Orthologs from Annotation pipeline' database (available at ftp.ncbi.nlm.nih.gov/gene/DATA/gene_orthologs.gz, and hence referred to as 'gene_orthologs'). There's also a R package: https://github.com/oganm/homologene. 
 
@@ -160,11 +263,11 @@ __STEP 1. Need to get an Orthology tables between different species. Got ortholo
 
 * 4) From Adriana's file
 
-__STEP 2. First generate files for gene ID conversion__
+### STEP 2. First generate files for gene ID conversion
 
 https://www.biostars.org/p/49606/, https://www.biostars.org/p/446641/， https://yiweiniu.github.io/blog/2018/09/Biological-ID-Conversion/, https://www.bioconductor.org/help/course-materials/2019/BSS2019/05_Annotations.html#biomart
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 ################
 # Use biomaRt, however it relies on ensembl which doesn't have all the entrez ID information
 ################
@@ -180,31 +283,31 @@ listDatasets(mart)
 human = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
 listAttributes(human)
 genes <- getBM(attributes=c("external_gene_name", "hgnc_symbol","entrezgene_id", "description", "chromosome_name", "start_position", "end_position", "strand", "version", "ensembl_gene_id", "hgnc_id"), mart = human)
-write.csv(genes, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/hsapiens.csv", col.names = T, row.names = F)
+write.csv(genes, file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/hsapiens.csv", col.names = T, row.names = F)
 
 # Mouse
 mouse = useMart("ensembl", dataset = "mmusculus_gene_ensembl")
 listAttributes(mouse)
 genes <- getBM(attributes=c("external_gene_name", "mgi_symbol","entrezgene_id", "description", "chromosome_name", "start_position", "end_position", "strand", "version", "ensembl_gene_id", "mgi_id"), mart = mouse)
-write.csv(genes, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mmusculus.csv", col.names = T, row.names = F)
+write.csv(genes, file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mmusculus.csv", col.names = T, row.names = F)
 
 # Killifish
 killifish = useMart("ensembl", dataset = "nfurzeri_gene_ensembl")
 listAttributes(killifish)
 genes <- getBM(attributes=c("external_gene_name","entrezgene_id", "description", "chromosome_name", "start_position", "end_position", "strand", "version", "ensembl_gene_id"), mart = killifish)
-write.csv(genes, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/nfurzeri.csv", col.names = T, row.names = F)
+write.csv(genes, file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/nfurzeri.csv", col.names = T, row.names = F)
 
 # Macaque
 macaque = useMart("ensembl", dataset = "mfascicularis_gene_ensembl")
 listAttributes(macaque)
 genes <- getBM(attributes=c("external_gene_name","entrezgene_id", "description", "chromosome_name", "start_position", "end_position", "strand", "version", "ensembl_gene_id"), mart = macaque)
-write.csv(genes, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mfascicularis.csv", col.names = T, row.names = F)
+write.csv(genes, file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mfascicularis.csv", col.names = T, row.names = F)
 
 # Rat
 rat = useMart("ensembl", dataset = "rnorvegicus_gene_ensembl")
 listAttributes(rat)
 genes <- getBM(attributes=c("external_gene_name","entrezgene_id", "description", "chromosome_name", "start_position", "end_position", "strand", "version", "ensembl_gene_id"), mart = rat)
-write.csv(genes, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/rnorvegicus.csv", col.names = T, row.names = F)
+write.csv(genes, file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/rnorvegicus.csv", col.names = T, row.names = F)
 
 ################
 # Use AnnotationHub to get the rest of the entrez ID or symbol
@@ -223,7 +326,7 @@ orgdb <- query(sub_ah, "OrgDb")[[1]]
 columns(orgdb)
 keytypes(orgdb) # Type of variables than can be used as keys
 
-original <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mfascicularis.csv", header = T) # read the csv file which contains missing entrez ID and entrez symbol
+original <- read.csv(file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mfascicularis.csv", header = T) # read the csv file which contains missing entrez ID and entrez symbol
 symbol <- 
   original %>%
   dplyr::select(external_gene_name) %>%
@@ -252,7 +355,7 @@ original <-
   dplyr::left_join(map, by = c("entrezgene_id" = "ENTREZID")) %>%
   dplyr::mutate(external_gene_name = ifelse(external_gene_name == "", SYMBOL, external_gene_name)) %>%
   dplyr::select(!SYMBOL)
-write.csv(original, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mfascicularis.csv", col.names = T, row.names = F) # save it back
+write.csv(original, file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mfascicularis.csv", col.names = T, row.names = F) # save it back
 
 # Nothobranchius furzeri
 sub_ah = query(ah, c("OrgDb", "Nothobranchius furzeri"))
@@ -261,7 +364,7 @@ orgdb <- query(sub_ah, "OrgDb")[[1]]
 columns(orgdb)
 keytypes(orgdb) # Type of variables than can be used as keys
 
-original <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/nfurzeri.csv", header = T) # read the csv file which contains missing entrez ID and entrez symbol
+original <- read.csv(file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/nfurzeri.csv", header = T) # read the csv file which contains missing entrez ID and entrez symbol
 symbol <- 
   original %>%
   dplyr::select(external_gene_name) %>%
@@ -290,7 +393,7 @@ original <-
   dplyr::left_join(map, by = c("entrezgene_id" = "ENTREZID")) %>%
   dplyr::mutate(external_gene_name = ifelse(external_gene_name == "", SYMBOL, external_gene_name)) %>%
   dplyr::select(!SYMBOL)
-write.csv(original, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/nfurzeri.csv", col.names = T, row.names = F) # save it back
+write.csv(original, file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/nfurzeri.csv", col.names = T, row.names = F) # save it back
 
 # Rattus Norvegicus
 sub_ah = query(ah, c("OrgDb", "Rattus Norvegicus"))
@@ -299,7 +402,7 @@ orgdb <- query(sub_ah, "OrgDb")[[1]]
 columns(orgdb)
 keytypes(orgdb) # Type of variables than can be used as keys
 
-original <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/rnorvegicus.csv", header = T) # read the csv file which contains missing entrez ID and entrez symbol
+original <- read.csv(file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/rnorvegicus.csv", header = T) # read the csv file which contains missing entrez ID and entrez symbol
 symbol <- 
   original %>%
   dplyr::select(external_gene_name) %>%
@@ -328,7 +431,7 @@ original <-
   dplyr::left_join(map, by = c("entrezgene_id" = "ENTREZID")) %>%
   dplyr::mutate(external_gene_name = ifelse(external_gene_name == "", SYMBOL, external_gene_name)) %>%
   dplyr::select(!SYMBOL)
-write.csv(original, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/rnorvegicus.csv", col.names = T, row.names = F) # save it back
+write.csv(original, file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/rnorvegicus.csv", col.names = T, row.names = F) # save it back
 
 # Mus musculus
 sub_ah = query(ah, c("OrgDb", "Mus musculus"))
@@ -337,7 +440,7 @@ orgdb <- query(sub_ah, "OrgDb")[[1]]
 columns(orgdb)
 keytypes(orgdb) # Type of variables than can be used as keys
 
-original <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mmusculus.csv", header = T) # read the csv file which contains missing entrez ID and entrez symbol
+original <- read.csv(file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mmusculus.csv", header = T) # read the csv file which contains missing entrez ID and entrez symbol
 symbol <- 
   original %>%
   dplyr::select(external_gene_name) %>%
@@ -366,7 +469,7 @@ original <-
   dplyr::left_join(map, by = c("entrezgene_id" = "ENTREZID")) %>%
   dplyr::mutate(external_gene_name = ifelse(external_gene_name == "", SYMBOL, external_gene_name)) %>%
   dplyr::select(!SYMBOL)
-write.csv(original, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mmusculus.csv", col.names = T, row.names = F) # save it back
+write.csv(original, file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mmusculus.csv", col.names = T, row.names = F) # save it back
 
 # Homo sapiens
 sub_ah = query(ah, c("OrgDb", "Homo sapiens"))
@@ -375,7 +478,7 @@ orgdb <- query(sub_ah, "OrgDb")[[1]]
 columns(orgdb)
 keytypes(orgdb) # Type of variables than can be used as keys
 
-original <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/hsapiens.csv", header = T) # read the csv file which contains missing entrez ID and entrez symbol
+original <- read.csv(file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/hsapiens.csv", header = T) # read the csv file which contains missing entrez ID and entrez symbol
 symbol <- 
   original %>%
   dplyr::select(external_gene_name) %>%
@@ -404,7 +507,7 @@ original <-
   dplyr::left_join(map, by = c("entrezgene_id" = "ENTREZID")) %>%
   dplyr::mutate(external_gene_name = ifelse(external_gene_name == "", SYMBOL, external_gene_name)) %>%
   dplyr::select(!SYMBOL)
-write.csv(original, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/hsapiens.csv", col.names = T, row.names = F) # save it back
+write.csv(original, file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/hsapiens.csv", col.names = T, row.names = F) # save it back
 
 # x = c("Tll1", "Tlx3") # gene list to lift over
 # genesV2 = getLDS(attributes = c("rgd_symbol"), 
@@ -422,31 +525,31 @@ write.csv(original, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembe
 # m_df_sub_dis = distinct(m_df_sub) # remove non unqique rows
 ```
 
-__STEP 3. Organize ortholog gene database__
+### STEP 3. Organize ortholog gene database
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-rat <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/rnorvegicus.csv", header = T) %>%
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+rat <- read.csv(file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/rnorvegicus.csv", header = T) %>%
   dplyr::select(external_gene_name, entrezgene_id) %>%
   dplyr::filter(!is.na(entrezgene_id))
-mouse <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mmusculus.csv", header = T) %>%
+mouse <- read.csv(file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mmusculus.csv", header = T) %>%
   dplyr::select(external_gene_name, entrezgene_id) %>%
   dplyr::filter(!is.na(entrezgene_id))
-human <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/hsapiens.csv", header = T) %>%
+human <- read.csv(file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/hsapiens.csv", header = T) %>%
   dplyr::select(external_gene_name, entrezgene_id) %>%
   dplyr::filter(!is.na(entrezgene_id))
-macaque <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mfascicularis.csv", header = T) %>%
+macaque <- read.csv(file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/mfascicularis.csv", header = T) %>%
   dplyr::select(external_gene_name, entrezgene_id) %>%
   dplyr::filter(!is.na(entrezgene_id))
-killifish <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/nfurzeri.csv", header = T) %>%
+killifish <- read.csv(file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/geneID_to_geneSymbol/nfurzeri.csv", header = T) %>%
   dplyr::select(external_gene_name, entrezgene_id) %>%
   dplyr::filter(!is.na(entrezgene_id))
 
 # Import NCBI ortholog file, which contains gene list for 376 taxonomies.
-ncbi_ortho <- read.table(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/NCBI_gene_orthologs.txt", sep = "\t", header = T)
+ncbi_ortho <- read.table(file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/NCBI_gene_orthologs.txt", sep = "\t", header = T)
 # list_of_tax <- as.data.frame(unique(c(ncbi_ortho$tax_id, ncbi_ortho$Other_tax_id)))
-# temp <- write.table(list_of_tax, file = "C:/Users/QiYan/Desktop/temp.txt", col.names = T, row.names = F, sep = "\t", quote = F)
+# temp <- write.table(list_of_tax, file = "C:/Users/qiyan/Desktop/temp.txt", col.names = T, row.names = F, sep = "\t", quote = F)
 # Also import tax ID
-tax_id <- read.table(file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/Taxonomy_ID.txt", sep = "\t", header = T) %>%
+tax_id <- read.table(file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/Taxonomy_ID.txt", sep = "\t", header = T) %>%
   dplyr::select(taxid, taxname)
 # Link the tax id w/ ncbi_ortho, and only keeps human, mouse, rat, killifish, and crab-eating macaque
 targeted_tax <- c("Homo sapiens", "Rattus norvegicus", "Mus musculus", "Macaca fascicularis", "Nothobranchius furzeri")
@@ -489,23 +592,311 @@ ncbi_ortho_human_wide <-
   dplyr::rename(Nothobranchius_furzeri_symbol = "external_gene_name") %>%
   dplyr::left_join(macaque, by = c("Macaca_fascicularis_entrezID" = "entrezgene_id")) %>% # macaque
   dplyr::rename(Macaca_fascicularis_symbol = "external_gene_name")
-write.csv(ncbi_ortho_human_wide, file = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Ortholog_Genes/ncbi_ortho_human_wide_final.csv", col.names = T, row.names = F)
+ncbi_ortho_human_wide <- ncbi_ortho_human_wide[!duplicated(ncbi_ortho_human_wide), ]
+write.csv(ncbi_ortho_human_wide, file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/ncbi_ortho_human_wide_final.csv", col.names = T, row.names = F)
 ```
 
+Also donwloaded all the mammalianArray annotation file from github
 
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# {bash, engine.opts='-l'}
+# <!-- find /Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/MammalianMethylationConsortium/Annotations_Amin/Mammals -type f -print | while read -r file; do gzip "$file"; done -->
+```
 
-a) Need a ortholog gene map
-b) Need a gene id - gene symbol conversion tool for all species
+Need to write a function for easily ortholog gene conversion. [UNFINISHED]
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+ortholog_map <- read.csv(file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/ncbi_ortho_human_wide_final.csv", header = T)
+
+EWAS_MaxLifespan <- read.csv(file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Important_Genes_HorvathLab/Top hits, Phylogenetic EWAS of maximum lifespan V2.csv", header = T) %>%
+  dplyr::select(-X)
+
+colnames(ortholog_map)
+
+species_converted <-
+  EWAS_MaxLifespan %>%
+  dplyr::mutate(row_id = 1:nrow(.)) %>%
+  dplyr::left_join(ortholog_map[,8:12], by = c("SYMBOL" = "Homo_sapiens_symbol"))
+
+species_converted <- species_converted[!duplicated(species_converted), ]
+
+```
+
+## Assess the bias of the array
+
+missMethyl indicated a way to control for array bias. See https://bioconductor.org/packages/release/bioc/vignettes/missMethyl/inst/doc/missMethyl.html#gene-ontology-analysis, also https://pubmed.ncbi.nlm.nih.gov/23732277/
 
 Check the bias of array, do the permutation test randomly select ~ 200 CpGs
 
-## Miscellaneous
+__Summarise the array__
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# Load mammalian array annotation for human and remove control probes
+mammailian_human_annotation <- read.csv(gzfile("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/MammalianMethylationConsortium/Annotations_Amin/Mammals/Homo_sapiens.hg19.HorvathMammalMethylChip40.v1.csv.gz"), header = T) %>%
+  dplyr::filter(!grepl("rs", CGid)) %>%
+  dplyr::filter(!(is.na(SYMBOL) & !grepl("cg", CGid)))
+
+print(paste("Number of probes:", nrow(mammailian_human_annotation), sep = " "))
+print(paste("Number of probes:", length(unique(mammailian_human_annotation$SYMBOL)), sep = " "))
+
+# Number of probes per gene
+cpg_per_gene <- 
+  mammailian_human_annotation %>%
+  dplyr::select(CGid, SYMBOL) %>%
+  dplyr::group_by(SYMBOL) %>%
+  dplyr::summarise(n_cpg = n())
+
+print(paste("Mean number of probes per gene:", round(mean(cpg_per_gene$n_cpg),1), sep = " "))
+print(paste("Median number of probes per gene:", round(median(cpg_per_gene$n_cpg),1), sep = " "))
+print(paste("Max number of probes per gene:", max(cpg_per_gene$n_cpg), sep = " "))
+print(paste("Min number of probes per gene:", min(cpg_per_gene$n_cpg), sep = " "))
+gghistogram(cpg_per_gene, x = "n_cpg", fill = "lightgray", add = "mean", rug = TRUE, title = "Number of probes per gene, human hg19")
+
+# Calculate average number of probe for each GO gene set, https://www.rdocumentation.org/packages/topGO/versions/2.24.0/topics/annFUN
+# BP <- topGO::annFUN.org("BP", mapping = "org.Hs.eg.db", ID = "symbol")
+# CC <- topGO::annFUN.org("CC", mapping = "org.Hs.eg.db", ID = "symbol")
+# MF <- topGO::annFUN.org("MF", mapping = "org.Hs.eg.db", ID = "symbol")
+# 
+# output_BP <- {}
+# for (i in 1:length(BP)) {
+#   cpg_in_GO <- 
+#     cpg_per_gene %>%
+#     dplyr::filter(SYMBOL %in% BP[[i]])
+#   temp <- c(names(BP[i]), mean(cpg_in_GO$n_cpg), "BP")
+#   output_BP <- rbind(output_BP, temp)
+# }
+# output_CC <- {}
+# for (i in 1:length(CC)) {
+#   cpg_in_GO <- 
+#     cpg_per_gene %>%
+#     dplyr::filter(SYMBOL %in% CC[[i]])
+#   temp <- c(names(CC[i]), mean(cpg_in_GO$n_cpg), "CC")
+#   output_CC <- rbind(output_CC, temp)
+# }
+# output_MF <- {}
+# for (i in 1:length(MF)) {
+#   cpg_in_GO <- 
+#     cpg_per_gene %>%
+#     dplyr::filter(SYMBOL %in% MF[[i]])
+#   temp <- c(names(MF[i]), mean(cpg_in_GO$n_cpg), "MF")
+#   output_MF <- rbind(output_MF, temp)
+# }
+# 
+# output <- as.data.frame(rbind(output_BP, output_CC, output_MF))
+# colnames(output) <- c("GO", "mean_cpg", "type")
+# 
+# saveRDS(output, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/average_probe_per_GOterm.rds")
+output <- readRDS("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/average_probe_per_GOterm.rds")
+
+print(paste("Total number of GO term: ", nrow(output), sep = ""))
+print(paste("GO terms without matching: ", sum(output$mean_cpg == "NaN"), sep = ""))
+
+# Distribution of the average probes per GO gene set
+output_noMissing <- 
+  output %>%
+  dplyr::filter(mean_cpg != "NaN") %>%
+  dplyr::mutate(mean_cpg = as.numeric(mean_cpg))
+gghistogram(output_noMissing, x = "mean_cpg", fill = "lightgray", add = "mean", rug = TRUE, title = "Average probes per GO gene set, human hg19")
+gghistogram(output_noMissing, x = "mean_cpg", color = "type", fill = "type", add = "mean", rug = TRUE, title = "Average probes per GO gene set, human hg19")
+gghistogram(output_noMissing[which(output_noMissing$mean_cpg>25),], x = "mean_cpg", color = "type", fill = "type", add = "mean", rug = TRUE, title = "Average probes per GO gene set, human hg19")
+# Top 20 GO terms based on average probes
+library(GO.db)
+GO <- Term(GOTERM) %>% 
+  as.data.frame() %>%
+  dplyr::rename(term = ".") %>%
+  dplyr::add_rownames(var = "GO")
+top_GO <- 
+  head(output_noMissing[order(-output_noMissing$mean_cpg),],20) %>%
+  dplyr::left_join(GO, by = "GO")
+top_GO
+```
+
+Based on https://bioconductor.org/packages/release/bioc/vignettes/rGREAT/inst/doc/rGREAT.html, https://vimeo.com/22642509, and https://pubmed.ncbi.nlm.nih.gov/23732277/, conduct permutation test using rGREAT.
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+library(rGREAT)
+setwd('/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/PermutationTest_GREAT/Output')
+
+# generate permutated input file
+background <- mammailian_human_annotation
+table(background$geneChr,useNA='ifany')
+table(background$seqnames,useNA='ifany')
+background=subset(background,!is.na(geneChr))
+background$CHR=as.character(background$seqnames)
+
+background <- # this is the background list
+  background %>%
+  dplyr::select(CHR,start,end,CGid)
+
+{
+start <- Sys.time()
+output.all={}
+# Conduct 100 permutation test and record all p values
+for (i in 1:5) {
+  set.seed(1106+i)
+  perm <- # Randomlly sample 1000 rows
+    dplyr::sample_n(background, 1000) %>%
+    dplyr::select(CHR,start,end,CGid)
+  # write.table(subset(pos[1:500,],select=c(CHR,start,end,CGid)),out2.txt,sep=' ',row.names = F,quote=F,col.names = F)
+  
+  # Conduct rGREAT analysis
+  # Default setting based on Ake's paper: assembly: Hg19, Proximal: 5.0 kb upstream, 1.0 kb downstream, plus Distal: up to 50 kb
+  extend=c(50,1000)
+  #demo with the default extension of gene regulatory region(1 Mb)
+  job = submitGreatJob(gr = perm, bg = background,
+                       species               = "hg19",
+                       includeCuratedRegDoms = TRUE,
+                       rule                  = c("basalPlusExt"),
+                       adv_upstream          = 5.0,
+                       adv_downstream        = 1.0,
+                       adv_span              = extend[1],
+                       request_interval = 30,
+                       version="3.0.0",
+                       max_tries = 10)
+  # job.pos = readRDS(system.file("extdata", "job.rds", package = "rGREAT"))
+  ontology.all=availableOntologies(job)
+  #availableOntologies(job.pos, category = "Pathway Data")
+  #availableOntologies(job.pos, category = "GO")
+  output.perm={}
+  for(k in 1:length(ontology.all)){
+    # print(ontology.all[k])
+    out0.list = tryCatch(getEnrichmentTables(job,ontology=ontology.all[k]),error=function(e){NULL})
+    if(!is.null(out0.list)){
+      db0.list=as.list(names(out0.list))
+      output<-Map(cbind,Database=db0.list,out0.list)
+      output<-do.call('rbind',output)
+      output.perm=rbind(output.perm,output)
+    }
+  }
+  output.perm <- output.perm[order(output.perm$Database, output.perm$ID),]
+  # table(output.perm$Database)
+  output.all <-
+    as.data.frame(cbind(output.all, output.perm$Hyper_Adjp_BH))
+  colnames(output.all)[i] <- paste("perm_", i, sep = "")
+}
+  output.all <- cbind(output.perm[1:3], output.all)
+  Sys.time()-start
+}
+saveRDS(output.all, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/PermutationTest_GREAT/Output/human_hg19_GREAT_100times.rds")
+# head(output.all)
+# saveRDS(output.all,file=output.rds)
+```
+
+Summarize the permutation test.
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+output.all <- readRDS("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/PermutationTest_GREAT/Output/human_hg19_GREAT_100times.rds")
+
+summary <- 
+  apply(output.all[,4:103], 1, function (x) sum(x < 5e-2)) %>%
+  as.data.frame() %>%
+  dplyr::rename(n_sig = ".") %>%
+  cbind(., output.all)
+
+summary_sig <-
+  summary %>%
+  dplyr::filter(n_sig != 0) %>%
+  dplyr::arrange(-n_sig)
+print(paste("Among all ", nrow(output.all), " gene sets tested, ", nrow(summary_sig), " had one or more significantly enriched result (FDR < 0.05) based on 100 permutation tests.", sep = ""))
+summary_sig
+```
+
+## Enrichment
+
+### TWASEWAS
+
+https://horvath.genetics.ucla.edu/html/CoexpressionNetwork/GeneAnnotation/
+
+file:///Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Amin/Codes%20and%20protocols/Standardized%20Enrichment%20protocol%20for%20andRichment%20and%20GSAMETH.%20Amin.html
+file:///Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Ake/EnrichmentAnalysis/GOMETH/R_pgm4_gsameth_EWAS_Age_Human.html
+
+/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Ake/EnrichmentAnalysis
+/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Ake/EnrichmentAnalysis/GREAT/R_pgm1_input_GREAT.R
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+rm(list=ls())
+options(StringsAsFactor=F)
+library(tidyverse)
+
+setwd('/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/')
+source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/func1_hypercalc.R")
+source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/func2_TWASEWAS.R")
+
+# Load TWAS annotation file
+twas.anno=read.csv('TWASDataAnnotation.csv')
+twas.anno <- twas.anno %>% dplyr::mutate(data = paste("Reference_Database/", Index, "_", Reference, ".csv.gz", sep = ""))
+twas.anno <- twas.anno %>% dplyr::filter(Organism != "Nothobranchius_furzeri") # For now remove killifish
+
+# Load background, based on Amin's annotation file
+bg_human <- read.csv(gzfile("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/MammalianMethylationConsortium/Annotations_Amin/Mammals/Homo_sapiens.hg19.HorvathMammalMethylChip40.v1.csv.gz"), header = T) %>%
+  dplyr::filter(!grepl("rs", CGid)) %>%
+  dplyr::filter(!(is.na(SYMBOL) & !grepl("cg", CGid)))
+bg_mouse <- read.csv(gzfile("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/MammalianMethylationConsortium/Annotations_Amin/Mammals/Mus_musculus.grcm38.100.HorvathMammalMethylChip40.v1.csv.gz"), header = T) %>%
+  dplyr::filter(!grepl("rs", CGid)) %>%
+  dplyr::filter(!(is.na(SYMBOL) & !grepl("cg", CGid))) %>%
+  dplyr::filter(!(is.na(SYMBOL)))
+bg_rat <- read.csv(gzfile("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/MammalianMethylationConsortium/Annotations_Amin/Mammals/Rattus_norvegicus.rnor_6.0.101.HorvathMammalMethylChip40.v1.csv.gz"), header = T) %>%
+  dplyr::filter(!grepl("rs", CGid)) %>%
+  dplyr::filter(!(is.na(SYMBOL) & !grepl("cg", CGid))) %>%
+  dplyr::filter(!(is.na(SYMBOL)))
+bg_macaque <- read.csv(gzfile("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/MammalianMethylationConsortium/Annotations_Amin/Mammals/Macaca_fascicularis.macaca_fascicularis_5.0.100.HorvathMammalMethylChip40.v1.csv.gz"), header = T) %>%
+  dplyr::filter(!grepl("rs", CGid)) %>%
+  dplyr::filter(!(is.na(SYMBOL) & !grepl("cg", CGid))) %>%
+  dplyr::filter(!(is.na(SYMBOL)))
+
+# Load ortholog map
+# ortho <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/ncbi_ortho_human_wide_final.csv", header = T)
+# map <- bg %>%
+#   dplyr::left_join(ortho[,c("Homo_sapiens_symbol", "Mus_musculus_symbol")], by = c("SYMBOL" = "Homo_sapiens_symbol"))
+
+# Load targeted gene list
+pos <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/Annotation_files/Epigenomics/Important_genes/Aging_EWAS_HorvathLab/Top hits, EWAS max lifspan.csv", header = T) %>%
+    dplyr::filter(group == "positive") %>%
+    dplyr::filter(Tissue == "ALL") # Top 500 CpGs related to max lifespan
+neg <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/Annotation_files/Epigenomics/Important_genes/Aging_EWAS_HorvathLab/Top hits, EWAS max lifspan.csv", header = T) %>%
+  dplyr::filter(group == "negative") %>%
+  dplyr::filter(Tissue == "ALL") # Top 500 CpGs related to max lifespan
+
+output_pos <- TWASEWAS(sig_gene_list = pos) %>%
+  dplyr::mutate(Direction = "Hyper")
+output_neg <- TWASEWAS(sig_gene_list = neg) %>%
+  dplyr::mutate(Direction = "Hypo")
+output_all <- rbind(output_pos, output_neg) %>%
+  arrange(P_value)
+
+# write.table(output_all,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/TWASEWAS_enriched_results.csv",sep=',',row.names = F,quote=F)
+
+# Draw plot
+plot <- 
+  output_all %>%
+  dplyr::filter(fdr < 0.05) %>%
+  dplyr::mutate(p.value.log10 = -log10(P_value)) %>%
+  dplyr::mutate(Direction = factor(Direction, levels = c("Hyper", "Hypo")))
+
+png(file="/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/TWASEWAS_enriched_results.png", width=1200, height=900)
+ggplot(plot, aes_string(x="Actual_pct", y="Reference", size="Actual_pct", color="p.value.log10")) + 
+  geom_point() +
+  scale_color_continuous(low="blue", high="red", name = "-Log10(P-value)", guide=guide_colorbar(reverse=F)) +
+  ylab(NULL) + ggtitle("") + DOSE::theme_dose(24) + scale_size(range=c(6, 16)) +
+  facet_grid(. ~ Direction)
+dev.off()
+```
+
+### Permutation test
+
+Conduct a permutation test
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+load(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/TWASEWAS_Permutation.RData")
+```
+
+## Miscellaneous
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # format S tables
 
 ## Type I
-temp <- xlsx::read.xlsx(file = "C:/Users/QiYan/Desktop/temp3.xlsx", sheetIndex = 1)
+temp <- xlsx::read.xlsx(file = "C:/Users/qiyan/Desktop/temp3.xlsx", sheetIndex = 1)
 temp2 <- 
   temp %>%
   dplyr::rename(Cell = celltype) %>%
@@ -518,19 +909,19 @@ temp2 <-
   dplyr::mutate(Trait = "Chronological age") %>%
   dplyr::select(Gene.Symbol, Reference, Technology, Organism, Tissue, Cell, Type, Trait)
 
-write.csv(temp2, file = "C:/Users/QiYan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
+write.csv(temp2, file = "C:/Users/qiyan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
 
 colnames(temp2)
 
 ## Type II
-temp <- xlsx::read.xlsx(file = "C:/Users/QiYan/Desktop/temp3.xlsx", sheetIndex = 1)
+temp <- xlsx::read.xlsx(file = "C:/Users/qiyan/Desktop/temp3.xlsx", sheetIndex = 1)
 
 temp2 <- as.data.frame(unique(unlist(strsplit(temp$Gene, "/"))))
 colnames(temp2) <- "Gene"
-write.csv(temp2, file = "C:/Users/QiYan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
+write.csv(temp2, file = "C:/Users/qiyan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
 
 ## Type III
-temp <- xlsx::read.xlsx(file = "C:/Users/QiYan/Desktop/temp3.xlsx", sheetIndex = 1)
+temp <- xlsx::read.xlsx(file = "C:/Users/qiyan/Desktop/temp3.xlsx", sheetIndex = 1)
 
 temp2 <- 
   temp %>%
@@ -544,10 +935,10 @@ temp2 <-
   dplyr::mutate(Note = "Whole-organism gene expression trajectory clustering") %>%
   dplyr::select(Gene.Symbol, Reference, Technology, Organism, Tissue, Cell, Type, Trait, Note)
 
-write.csv(temp2, file = "C:/Users/QiYan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
+write.csv(temp2, file = "C:/Users/qiyan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
 
 ## Type IV
-temp <- xlsx::read.xlsx(file = "C:/Users/QiYan/Desktop/temp3.xlsx", sheetIndex = 1)
+temp <- xlsx::read.xlsx(file = "C:/Users/qiyan/Desktop/temp3.xlsx", sheetIndex = 1)
 
 temp2 <- 
   temp %>%
@@ -567,11 +958,11 @@ temp2 <-
   dplyr::mutate(Note = "Cell type-resolved differential gene expression testing between age groups in the single cell data (FDR < 0.1)") %>%
   dplyr::select(Gene.Symbol, Reference, Technology, Organism, Tissue, Cell, Type, Trait, Note)
 
-write.csv(temp2, file = "C:/Users/QiYan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
+write.csv(temp2, file = "C:/Users/qiyan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
 
 ## Type V
-temp <- xlsx::read.xlsx(file = "C:/Users/QiYan/Desktop/temp3.xlsx", sheetIndex = 1)
-# temp <- read.table(file = "C:/Users/QiYan/Desktop/temp3.txt", sep = "\t")
+temp <- xlsx::read.xlsx(file = "C:/Users/qiyan/Desktop/temp3.xlsx", sheetIndex = 1)
+# temp <- read.table(file = "C:/Users/qiyan/Desktop/temp3.txt", sep = "\t")
 # colnames(temp) <- temp[1,]
 # temp <- temp[-1,]
 
@@ -596,11 +987,11 @@ temp2 <-
 unique(temp2$Cell)
 # nrow(temp2[which(temp2$Cell == "global_aging"),])
 
-write.csv(temp2, file = "C:/Users/QiYan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
-# write.table(temp2, file = "/Users/qiyan/dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/Aging_Gene/Reference_and_SummaryStatistics/Reference_Database/TabulaMurisSenisZhang_2021_MM_scT_ST2FACS.txt", row.names = F, col.names = T, quote = F, sep = "\t")
+write.csv(temp2, file = "C:/Users/qiyan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
+# write.table(temp2, file = "//Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/TabulaMurisSenisZhang_2021_MM_scT_ST2FACS.txt", row.names = F, col.names = T, quote = F, sep = "\t")
 
 ## Type VI
-temp <- xlsx::read.xlsx(file = "C:/Users/QiYan/Desktop/temp3.xlsx", sheetIndex = 1)
+temp <- xlsx::read.xlsx(file = "C:/Users/qiyan/Desktop/temp3.xlsx", sheetIndex = 1)
 
 temp2 <- 
   temp %>%
@@ -616,6 +1007,10 @@ temp2 <-
   dplyr::mutate(Note = "DEGs as the intersection of three independent statistical tests in at least one of all pairwise comparisons between the age-groups") %>%
   dplyr::select(Gene.Symbol, Reference, Technology, Organism, Tissue, Cell, Type, Trait, Note)
 
-write.csv(temp2, file = "C:/Users/QiYan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
+write.csv(temp2, file = "C:/Users/qiyan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
 
 ```
+
+## Questions
+
+1) for human annotation, use hg19 or hg38? different number of genes - 7279 vs. 6871
