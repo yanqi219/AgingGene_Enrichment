@@ -156,7 +156,7 @@ ggplot(statistics, aes(x=Reference, y=n)) +
 twas_anno <- read.csv(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/TWASDataAnnotation.csv", header = T) # This part won't be useful after record 347.
 main_reference <- read.table(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/Raw/Aging_Gene_Database_main.tsv", sep = "\t", header = T)
 
-# Make annotation file and rwa file consistent, bc there are some datasets tested multiple trait, need to make the name of those datasets unique
+# Make annotation file and raw file consistent, bc there are some datasets tested multiple trait, need to make the name of those datasets unique
 # twas_anno <- twas_anno %>% dplyr::mutate(Reference = ifelse(Reference == "Zhang_2021_MM_scT_ST3_stem cell/progenitor_Age", "Zhang_2021_MM_scT_ST3_stem cell_Age", Reference))
 # main_reference <- main_reference %>% dplyr::mutate(Reference = ifelse(Reference == "Zhang_2021_MM_scT_ST3_stem cell/progenitor_Age", "Zhang_2021_MM_scT_ST3_stem cell_Age", Reference))
 # twas_anno <- twas_anno %>% dplyr::mutate(Reference2 = paste(Reference, Trait, sep = ""))
@@ -247,6 +247,36 @@ for (i in 1:nrow(Reference)) {
   readr::write_csv(temp, path = fname, col_names = T)
 }
 write.csv(Reference, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/geoDataAnnotation_ready2comb.csv", row.names = F, quote = F)
+
+#############
+# TabulaMurisSenis
+#############
+
+tms <- read.table(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/Raw/TabulaMurisSenis_ST6.txt", sep = "\t", header = T)
+
+# Make annotation file and raw file consistent, bc there are some datasets tested multiple trait, need to make the name of those datasets unique
+tms_anno <- tms %>% 
+  dplyr::select(-Gene.Symbol) %>% 
+  dplyr::mutate(Category = "Age") %>% 
+  unique() %>%
+  dplyr::mutate(Index = 635:(635+nrow(tms_anno)-1)) %>% 
+  dplyr::mutate(Reference = paste(Reference, Category, sep = "_")) %>%
+  dplyr::mutate(data = paste(Index, "_", Reference, ".csv.gz", sep = ""))
+tms <- tms %>%
+  dplyr::mutate(Category = "Age") %>% 
+  dplyr::mutate(Reference = paste(Reference, Category, sep = "_"))
+
+write.csv(tms_anno, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/tmsDataAnnotation_ready2comb.csv", col.names = T, row.names = F, quote = F)
+
+# Extract each gene set and write csv.gz file
+for (i in 1:nrow(tms_anno)) {
+  temp <-
+    tms %>%
+    dplyr::filter(Reference == tms_anno$Reference[i]) %>%
+    dplyr::select(Gene.Symbol, Reference)
+  fname <- paste("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/", tms_anno$data[i], sep = "")
+  readr::write_csv(temp, path = fname, col_names = T)
+}
 ```
 
 ## Ortholog Genes
@@ -1014,3 +1044,16 @@ write.csv(temp2, file = "C:/Users/qiyan/Desktop/temp2.csv", row.names = F, col.n
 ## Questions
 
 1) for human annotation, use hg19 or hg38? different number of genes - 7279 vs. 6871
+
+
+
+* For max lifespan ewas, Caesar used mouse genome
+Ake's - 37k probes
+
+* Ask Amin about the annotation file
+
+* Currently focus on gene label
+
+* Null distribution: fit -log10(pvalue)/pvalue under a non-
+
+* Create ontology for TWAS database e.g based on species/traits etc.
