@@ -17,7 +17,9 @@ hypercalc <- function(background = bg, target = sig_gene_list_used, pathway = ot
   
   pvalue <- phyper(hit, pathway_size, reference - pathway_size, input, lower.tail=F) 
   
-  temp_result <- c(Index, hit+1, pathway_size, sig_pct, total_pct, pvalue, paste(hit_gene, collapse = "; "))
-  names(temp_result) <- c("Index", "Hit", "list_size", "Actual_pct", "Exp_pct", "P_value", "Hit_genes")
+  hit_cpg <- paste(target %>% dplyr::filter(toupper(SYMBOL) %in% hit_gene) %>% dplyr::pull(CGid), collapse = "; ")
+  
+  temp_result <- c(Index, hit+1, pathway_size, sig_pct, total_pct, pvalue, paste(hit_gene, collapse = "; "), hit_cpg)
+  names(temp_result) <- c("Index", "Hit", "list_size", "Actual_pct", "Exp_pct", "P_value", "Hit_genes", "Hit_cpgs")
   return(temp_result)
 }

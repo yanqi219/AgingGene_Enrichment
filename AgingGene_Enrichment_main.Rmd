@@ -1,5 +1,5 @@
 ---
-title: "AgingGene_Enrichment"
+title: "EWASTWAS"
 author: "Qi Yan"
 date: "07/28/2021"
 output:
@@ -60,9 +60,23 @@ allowWGCNAThreads()
 ## Summary of the reference database
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-main_reference <- read.table(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/Aging_Gene_Database_main.tsv", sep = "\t")
-colnames(main_reference) <- main_reference[1,]
-main_reference <- main_reference[-1,]
+twas.anno=read.csv('/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/TWASDataAnnotation.csv')
+twas.anno <- twas.anno %>% dplyr::mutate(data = paste("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/", Index, "_", Reference, ".csv.gz", sep = ""))
+
+main_reference_raw={}
+for(k in 1:nrow(twas.anno)){
+  print(twas.anno$Reference[k])
+  other <- read.csv(gzfile(twas.anno$data[k])) %>%
+    dplyr::select(Gene.Symbol, Reference) %>%
+    dplyr::mutate(Index = twas.anno$Index[k])
+  main_reference_raw <- rbind(main_reference_raw, other)
+}
+main_reference <- main_reference_raw %>%
+  dplyr::left_join(twas.anno, by = c("Index", "Reference"))
+
+# main_reference <- read.table(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Reference_Database/Aging_Gene_Database_main.tsv", sep = "\t")
+# colnames(main_reference) <- main_reference[1,]
+# main_reference <- main_reference[-1,]
 
 main_reference <- 
   main_reference %>%
@@ -83,7 +97,7 @@ print(unique(main_reference$Organism))
 print(paste("Total number of gene sets (tables): ", length(unique(main_reference$Reference)), sep = ""))
 
 # Number of unique genes
-print(paste("Number of unique genes: ", length(unique(main_reference$`Gene Symbol`)), sep = ""))
+print(paste("Number of unique genes: ", length(unique(toupper(main_reference$Gene.Symbol))), sep = ""))
 
 # Number of unique cell types
 print(paste("Number of unique cell types: ", length(unique(main_reference$Cell)), sep = " "))
@@ -132,6 +146,7 @@ statistics <-
   group_by(Reference) %>%
   summarise(n = n())
 
+png(file="/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Meeting_Presentation/Genes_per_table v2.png", width=1800, height=4500)
 ggplot(statistics, aes(x=Reference, y=n)) +
   geom_segment(aes(x=Reference, xend=Reference, y=0, yend=n), color="skyblue") +
   geom_point( color="blue", size=4, alpha=0.6) +
@@ -142,8 +157,8 @@ ggplot(statistics, aes(x=Reference, y=n)) +
     panel.grid.major.y = element_blank(),
     panel.border = element_blank(),
     axis.ticks.y = element_blank()
-  ) +
-  scale_y_continuous(breaks=seq(0,4500,100))
+  )
+dev.off()
 ```
 
 ### Construct database
@@ -1038,7 +1053,59 @@ temp2 <-
   dplyr::select(Gene.Symbol, Reference, Technology, Organism, Tissue, Cell, Type, Trait, Note)
 
 write.csv(temp2, file = "C:/Users/qiyan/Desktop/temp2.csv", row.names = F, col.names = T, quote = F)
+```
 
+## Add more data
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Need two columns: Gene.Symbol and Reference
+k = 683
+for (i in c("Adrenals", "Cerebellum", "Eye", "Gonads", "Heart", "Lung", "Spleen", "SpinalCord", "Thymus")) {
+  Ref = paste("Zahn_2007_MM_T_STable2_", i, "_Age", sep = "")
+  table <- read.xlsx(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Raw_Tables/Zahn_2007_MM_T/Data/Supplemental Table 2.xls", sheetName = i) %>%
+    dplyr::rename(Gene.Symbol = "Gene.Name") %>%
+    dplyr::mutate(Reference = Ref) %>%
+    dplyr::select(-Gene.Ontology)
+  table <- table[!is.na(table$Gene.Symbol),]
+  readr::write_csv(table, path = paste("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Reference_Database/", k,"_", Ref, ".csv.gz", sep = ""), col_names = T)
+  k=k+1
+}
+
+table <- read.xlsx(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Raw_Tables/Brawand_2011_MAML_T/Data/TWAS_maxlifespan/final_results.xlsx", sheetIndex = 2)
+
+readr::write_csv(table, path = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Reference_Database/697_Brawand_2011_MAML_T_TWASmaxlifespan_AllTissue_Lifespan.csv.gz", col_names = T)
+
+
+table <- read.xlsx(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Raw_Tables/Zahn_2007_MM_T/Data/Supplemental Table 2.xls", sheetName = i) %>%
+  dplyr::filter(p_val < 5e-4) %>%
+  dplyr::rename(Gene.Symbol = "Gene") %>%
+  dplyr::rename(Direction = "cluster") %>%
+  dplyr::mutate(Reference = "Wang_2020_MF_scT_STable4_Ovary_Stromal_Age")
+
+readr::write_csv(table, path = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Reference_Database/682_Wang_2020_MF_scT_STable4_Ovary_Stromal_Age.csv.gz", col_names = T)
+
+test <- read_csv(gzfile("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Reference_Database/670_Palmer_2021_MAML_T_STable4_Brain_Age.csv.gz"))
+
+
+ortho <- read_tsv(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Reference_Database/Raw/models_genes_GenAge/genage_models_orthologs_export.tsv")
+table <- read_csv("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Reference_Database/Raw/models_genes_GenAge/genage_models.csv") %>%
+  dplyr::rename(model_symbol = "symbol") %>%
+  dplyr::left_join(ortho, by = c("model_symbol" = "ModelOrganismSymbol")) %>%
+  dplyr::rename(Gene.Symbol = "Symbol")
+table %>% dplyr::group_by(organism) %>%
+  summarise(n = n())
+
+
+library(GEOquery)
+gse <- getGEO("GSE81959") #Retrieve matrix data and store it in R object
+show(object = gse) ## To summarize the gse object
+x <- Biobase::exprs(gse[[1]]) ## print the expression data #Get expression set from gse object
+
+gse$GSE81959_series_matrix.txt.gz$characteristics_ch1.1
+gse$GSE81959_series_matrix.txt.gz$characteristics_ch1.2
+gse$GSE81959_series_matrix.txt.gz$characteristics_ch1.3
+
+Sys.setenv("VROOM_CONNECTION_SIZE" = 131072*1000)
 ```
 
 ## Questions

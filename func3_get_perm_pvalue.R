@@ -1,9 +1,21 @@
-get_perm_pvalue <- function(actual_data = output_pos, n_perm = 1000, method = "nonpar", ewas_species = "human"){
+get_perm_pvalue <- function(actual_data = output_pos, n_perm = 1000, method = "gamma", ewas_species = "human", n_top = n_top){
   # Load permutation test results
   if(ewas_species == "human"){
-    load(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/TWASEWAS_Permutation_human.RData")
+    if(n_top < 100){ # Need to be fixed, 500!!
+      load(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Permutation/TWASEWAS_Permutation_human_top50.RData")
+    }else if(n_top <= 500 & n_top > 100){
+      load(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Permutation/TWASEWAS_Permutation_human_top500.RData")
+    }else if(n_top == 1000){
+      load(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Permutation/TWASEWAS_Permutation_human_top1000.RData")
+    }
   }else if(ewas_species == "mouse"){
-    load(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/TWASEWAS_Permutation_mouse.RData")
+    if(n_top < 100){ # Need to be fixed, 500!!
+      load(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Permutation/TWASEWAS_Permutation_mouse_top50.RData")
+    }else if(n_top <= 500 & n_top > 100){
+      load(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Permutation/TWASEWAS_Permutation_mouse_top500.RData")
+    }else if(n_top == 1000){
+      load(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Permutation/TWASEWAS_Permutation_mouse_top1000.RData")
+    }
   }
   
   perm_pvalue <- perm_pvalue %>% dplyr::filter(Index %in% actual_data$Index) # restrict to actual data
