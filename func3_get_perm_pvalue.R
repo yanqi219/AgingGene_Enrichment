@@ -1,6 +1,6 @@
 get_perm_pvalue <- function(actual_data = output_pos, n_perm = 100, method = "gamma", ewas_species = "human", 
                             n_top, background_array, directory, anno_input){
-  source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/funcX_perm_utils.R")
+  source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/Utilities_perm.R")
   # Load permutation test results
   if(ewas_species == "human"){
     if(n_top == 50){ # Need to be fixed, 500!!

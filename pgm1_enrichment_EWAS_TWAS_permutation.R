@@ -3,7 +3,7 @@ options(StringsAsFactor=F)
 library(tidyverse)
 
  # Change to different database
-source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/funcX_perm_utils.R")
+source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/Utilities_perm.R")
 top_num_of_probe = 1000
 ewas_species_name = "human"
 num_of_perm = 1000

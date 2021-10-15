@@ -18,3 +18,18 @@ bg_macaque <- readRDS("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gen
   dplyr::filter(!(is.na(SYMBOL)))
 bg_AllSpecies_Amin <- list(human = bg_human, mouse = bg_mouse, rat = bg_rat, macaque = bg_macaque)
 save(bg_AllSpecies_Amin, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/MammalianMethylationConsortium/Annotations_Amin/bg_AllSpecies_Amin.RData")
+
+###############################
+# Reformate Caesar's EWAS output
+##############################
+library(tidyr)
+zscore <- readRDS("/Users/qiyan/Dropbox/Horvath_Lab/MammalianMethCombined/StuffCaesar/JunoFork/allEWAS/Oct2021/Eutherians_allPhyloEWAS_weightAdjusted_zvalue.RDS")
+load("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/MammalianMethylationConsortium/Annotations_Amin/bg_AllSpecies_Amin.RData")
+human_anno <- bg_AllSpecies_Amin[["human"]]
+zscore <- zscore %>%
+  tibble::rownames_to_column(var = "CGid") %>%
+  dplyr::left_join(human_anno, by = "CGid") %>%
+  dplyr::arrange(desc(abs(`57.PGLS.EWAS.Log.maxAgeCaesar.OrderALL.TissueALL.N215`))) %>%
+  dplyr::mutate(rank_OrderALL_TissueALL = 1:nrow(zscore))
+
+write.csv(zscore, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/EWASmaxlifespan_topGene_local/topCG_Caesar/Eutherians_allPhyloEWAS_weightAdjusted_zvalue_OCTqy.csv", row.names = F, col.names = T)
