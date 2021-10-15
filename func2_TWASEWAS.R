@@ -1,7 +1,9 @@
 TWASEWAS <- function(sig_gene_list = NA, ewas_species = NA, twas_species = NA, twas_category = NA, 
-                     twas_database = NA, ewas_study = NA, topX = NA, directory = NA, annotation_file_name = NA, 
+                     twas_database = NA, ewas_study = NA, topX = NA, directory = NA, annotation_file_name = NA, num_permutation = 100,
                      bg_file_dir = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/MammalianMethylationConsortium/Annotations_Amin/bg_AllSpecies_Amin.RData"){
+  
   source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/func1_hypercalc.R")
+  source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/func3_get_perm_pvalue.R")
   setwd(directory)
 
   n_top = nrow(pos)
@@ -66,37 +68,43 @@ TWASEWAS <- function(sig_gene_list = NA, ewas_species = NA, twas_species = NA, t
                        char = "=")   # Character used to create the bar
   output.all={}
   for(k in 1:nrow(twas.anno)){
-    # print(twas.anno$Reference[k])
-    other=read.csv(gzfile(twas.anno$data[k])) # each gene list
-    other.name=twas.anno$Trait[k] # trait of this list
-    other.index = twas.anno$Index[k] # index of this list
-    
-    if(twas.anno$Organism[k] == "Homo_sapiens"){ # need to decide which bg should be used based on species, and also restrict the input list
-      bg = bg_AllSpecies_Amin[["human"]]
-    }else if(twas.anno$Organism[k] == "Rattus_norvegicus"){
-      bg = bg_AllSpecies_Amin[["rat"]]
-    }else if(twas.anno$Organism[k] == "Mus_musculus"){
-      bg = bg_AllSpecies_Amin[["mouse"]]
-    }else if(twas.anno$Organism[k] == "Macaca_fascicularis"){
-      bg = bg_AllSpecies_Amin[["macaque"]]
-    }else{
-      bg = bg_AllSpecies_Amin[["human"]]
+    tryCatch({
+      # print(twas.anno$Reference[k])
+      other=read.csv(gzfile(twas.anno$data[k])) # each gene list
+      other.name=twas.anno$Trait[k] # trait of this list
+      other.index = twas.anno$Index[k] # index of this list
+      
+      if(twas.anno$Organism[k] == "Homo_sapiens"){ # need to decide which bg should be used based on species, and also restrict the input list
+        bg = bg_AllSpecies_Amin[["human"]]
+      }else if(twas.anno$Organism[k] == "Rattus_norvegicus"){
+        bg = bg_AllSpecies_Amin[["rat"]]
+      }else if(twas.anno$Organism[k] == "Mus_musculus"){
+        bg = bg_AllSpecies_Amin[["mouse"]]
+      }else if(twas.anno$Organism[k] == "Macaca_fascicularis"){
+        bg = bg_AllSpecies_Amin[["macaque"]]
+      }else{
+        bg = bg_AllSpecies_Amin[["human"]]
+      }
+      
+      if(ewas_species == "mouse"){ # if the ewas was based on mouse or rat, need to further restrict the background to the overlap between mouse/rat and TWAS species; need to restrict the gene set as well but will need a ortholog map
+        bg <- bg %>% dplyr::filter(CGid %in% bg_AllSpecies_Amin[["mouse"]]$CGid)
+      }else if(ewas_species == "rat"){
+        bg <- bg %>% dplyr::filter(CGid %in% bg_AllSpecies_Amin[["rat"]]$CGid)
+      }
+      
+      sig_gene_list_used <- sig_gene_list %>% dplyr::filter(CGid %in% bg$CGid)
+      other <- other %>% dplyr::filter(toupper(Gene.Symbol) %in% toupper(unique(bg$SYMBOL))) # restrict pathway based on background
+      
+      # conduct hypergeometric test
+      temp_result <- hypercalc(background = bg, target = sig_gene_list_used, pathway = other, Index = other.index)
+      output.all <- rbind(output.all, temp_result)
+      
+      setTxtProgressBar(pb, k)
+    },
+    error=function(err) {
+      print(paste("Error at", twas.anno$Reference[k], "- Skip it"))
     }
-    
-    if(ewas_species == "mouse"){ # if the ewas was based on mouse or rat, need to further restrict the background to the overlap between mouse/rat and TWAS species; need to restrict the gene set as well but will need a ortholog map
-      bg <- bg %>% dplyr::filter(CGid %in% bg_mouse$CGid)
-    }else if(ewas_species == "rat"){
-      bg <- bg %>% dplyr::filter(CGid %in% bg_rat$CGid)
-    }
-    
-    sig_gene_list_used <- sig_gene_list %>% dplyr::filter(CGid %in% bg$CGid)
-    other <- other %>% dplyr::filter(toupper(Gene.Symbol) %in% toupper(unique(bg$SYMBOL))) # restrict pathway based on background
-    
-    # conduct hypergeometric test
-    temp_result <- hypercalc(background = bg, target = sig_gene_list_used, pathway = other, Index = other.index)
-    output.all <- rbind(output.all, temp_result)
-    
-    setTxtProgressBar(pb, k)
+    )
   }
   close(pb) # Close the connection
   print("Done!")
@@ -123,11 +131,14 @@ TWASEWAS <- function(sig_gene_list = NA, ewas_species = NA, twas_species = NA, t
   # Repeat many times to populate a list of scores. Using maximum likelihood estimation, these scores are modeled as a Gamma distribution (this is the null distribution), and a cumulative distribution function (CDF) is calculated.
   ## https://stackoverflow.com/questions/45536234/how-would-you-fit-a-gamma-distribution-to-a-data-in-r, https://rpubs.com/mpfoley73/459051
   
-  source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/func3_get_perm_pvalue.R")
   output.all <- output.all %>% arrange(Index)
   
-  output.all$perm_p_gamma <- get_perm_pvalue(actual_data = output.all, method = "gamma", ewas_species = ewas_species, n_top = n_top)
-  output.all$perm_p_nonpar <- get_perm_pvalue(actual_data = output.all, method = "nonpar", ewas_species = ewas_species, n_top = n_top)
+  output.all$perm_p_gamma <- get_perm_pvalue(actual_data = output.all, method = "gamma", ewas_species = ewas_species, 
+                                             n_top = n_top, n_perm = num_permutation, background_array = bg_AllSpecies_Amin,
+                                             anno_input = twas.anno, directory = directory)
+  output.all$perm_p_nonpar <- get_perm_pvalue(actual_data = output.all, method = "nonpar", ewas_species = ewas_species, 
+                                              n_top = n_top, n_perm = num_permutation, background_array = bg_AllSpecies_Amin,
+                                              anno_input = twas.anno, directory = directory)
   
   output.all <- output.all %>% dplyr::arrange(as.numeric(perm_p_gamma))
   

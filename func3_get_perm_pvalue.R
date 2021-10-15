@@ -1,21 +1,34 @@
-get_perm_pvalue <- function(actual_data = output_pos, n_perm = 1000, method = "gamma", ewas_species = "human", n_top = n_top){
+get_perm_pvalue <- function(actual_data = output_pos, n_perm = 100, method = "gamma", ewas_species = "human", 
+                            n_top, background_array, directory, anno_input){
+  source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/funcX_perm_utils.R")
   # Load permutation test results
   if(ewas_species == "human"){
-    if(n_top < 100){ # Need to be fixed, 500!!
-      load(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Permutation/TWASEWAS_Permutation_human_top50.RData")
-    }else if(n_top <= 500 & n_top > 100){
-      load(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Permutation/TWASEWAS_Permutation_human_top500.RData")
+    if(n_top == 50){ # Need to be fixed, 500!!
+      load(file = "Permutation/TWASEWAS_Permutation_human_top50.RData")
+    }else if(n_top == 500){
+      load(file = "Permutation/TWASEWAS_Permutation_human_top500.RData")
     }else if(n_top == 1000){
-      load(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Permutation/TWASEWAS_Permutation_human_top1000.RData")
+      load(file = "Permutation/TWASEWAS_Permutation_human_top1000.RData")
     }
   }else if(ewas_species == "mouse"){
-    if(n_top < 100){ # Need to be fixed, 500!!
-      load(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Permutation/TWASEWAS_Permutation_mouse_top50.RData")
-    }else if(n_top <= 500 & n_top > 100){
-      load(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Permutation/TWASEWAS_Permutation_mouse_top500.RData")
+    if(n_top == 50){ # Need to be fixed, 500!!
+      load(file = "Permutation/TWASEWAS_Permutation_mouse_top50.RData")
+    }else if(n_top == 500){
+      load(file = "Permutation/TWASEWAS_Permutation_mouse_top500.RData")
     }else if(n_top == 1000){
-      load(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Permutation/TWASEWAS_Permutation_mouse_top1000.RData")
+      load(file = "Permutation/TWASEWAS_Permutation_mouse_top1000.RData")
     }
+  }
+  
+  if(exists("perm_pvalue") & exists("perm_pvalue")){
+    print(paste("Have pre calculated permutation data (n_perm = 1000): ", "TWASEWAS_Permutation_", ewas_species, "_top", n_top, sep = ""))
+    n_perm = 1000
+  }else{
+    print("Need to calculate permutation (default n_perm = 100)")
+    perm_result <- do_perm(Target_species = ewas_species, topN = n_top, nperm = n_perm, 
+                           anno_input = anno_input, background_array = background_array, directory = directory)
+    perm_pvalue <- perm_result[[1]]
+    perm_actpct <- perm_result[[2]]
   }
   
   perm_pvalue <- perm_pvalue %>% dplyr::filter(Index %in% actual_data$Index) # restrict to actual data
@@ -29,7 +42,7 @@ get_perm_pvalue <- function(actual_data = output_pos, n_perm = 1000, method = "g
       a <- t(perm_pvalue[i,1:n_perm])
       if(round(sum(a),5) < n_perm){              # Some pathways have all 1 p values for permutation tests
         # fitdistrplus::plotdist(as.vector(a), histo = TRUE, demp = TRUE)
-        fit.gamma <- fitdistrplus::fitdist(as.vector(a), distr = "gamma", method = "mle")
+        invisible(capture.output(fit.gamma <- fitdistrplus::fitdist(as.vector(a), distr = "gamma", method = "mle")))
         fit.gamma <- summary(fit.gamma)
         temp <- pgamma(q = round(as.numeric(actual_data$P_value[i]),2), shape = fit.gamma$estimate[1], scale = 1/fit.gamma$estimate[2]) # Here I will round the p-value [CHECK]
       }else{

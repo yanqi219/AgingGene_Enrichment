@@ -24,9 +24,9 @@ check_perm <- function(permutation_dir, anno, species_name, topN){
 ####################
 # TWASEWAS_perm function
 ####################
-TWASEWAS_perm <- function(sig_gene_list = pos, ewas_species = ewas_species, twas_species = NA, twas_category = NA, twas_database = NA, anno){
+TWASEWAS_perm <- function(sig_gene_list = pos, ewas_species = ewas_species, twas_species = NA, twas_category = NA, twas_database = NA, anno, background_array, directory){
   source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/func1_hypercalc.R")
-  
+  setwd(directory)
   # Apply twas filters
   # twas_species <- c("Homo_sapiens", "Rattus_norvegicus", "ALl")
   if(is.na(twas_species)||toupper("all") %in% toupper(twas_species)){ # species (Homo_sapiens, Rattus_norvegicus, Mus_musculus, Macaca_fascicularis, all)
@@ -49,35 +49,35 @@ TWASEWAS_perm <- function(sig_gene_list = pos, ewas_species = ewas_species, twas
   
   output.all={}
   for(k in 1:nrow(anno)){
-    print(anno$Reference[k])
+    # print(anno$Reference[k])
     other=read.csv(gzfile(anno$data[k])) # each gene list
     other.name=anno$Trait[k] # trait of this list
     other.index = anno$Index[k] # index of this list
     
     if(anno$Organism[k] == "Homo_sapiens"){ # need to decide which bg should be used based on species, and also restrict the input list
-      bg = bg_human
+      bg = background_array[["human"]]
       # sig_gene_list_used = sig_gene_list
       # other <- other %>% dplyr::filter(toupper(Gene.Symbol) %in% toupper(unique(bg$SYMBOL))) 
     }else if(anno$Organism[k] == "Rattus_norvegicus"){
-      bg = bg_rat
+      bg = background_array[["rat"]]
       # sig_gene_list_used <- sig_gene_list %>% dplyr::filter(CGid %in% bg_rat$CGid)
       # other <- other %>% dplyr::filter(toupper(Gene.Symbol) %in% toupper(unique(bg$SYMBOL)))
     }else if(anno$Organism[k] == "Mus_musculus"){
-      bg = bg_mouse
+      bg = background_array[["mouse"]]
       # sig_gene_list_used <- sig_gene_list %>% dplyr::filter(CGid %in% bg_mouse$CGid)
       # other <- other %>% dplyr::filter(toupper(Gene.Symbol) %in% toupper(unique(bg$SYMBOL)))
     }else if(anno$Organism[k] == "Macaca_fascicularis"){
-      bg = bg_macaque
+      bg = background_array[["macaque"]]
       # sig_gene_list_used <- sig_gene_list %>% dplyr::filter(CGid %in% bg_macaque$CGid)
       # other <- other %>% dplyr::filter(toupper(Gene.Symbol) %in% toupper(unique(bg$SYMBOL)))
     }else{
-      bg = bg_human
+      bg = background_array[["human"]]
     }
     
     if(ewas_species == "mouse"){ # if the ewas was based on mouse or rat, need to further restrict the background to the overlap between mouse/rat and TWAS species; need to restrict the gene set as well but will need a ortholog map
-      bg <- bg %>% dplyr::filter(CGid %in% bg_mouse$CGid)
+      bg <- bg %>% dplyr::filter(CGid %in% background_array[["mouse"]]$CGid)
     }else if(ewas_species == "rat"){
-      bg <- bg %>% dplyr::filter(CGid %in% bg_rat$CGid)
+      bg <- bg %>% dplyr::filter(CGid %in% background_array[["rat"]]$CGid)
     }
     
     sig_gene_list_used <- sig_gene_list %>% dplyr::filter(CGid %in% bg$CGid)
@@ -104,15 +104,17 @@ TWASEWAS_perm <- function(sig_gene_list = pos, ewas_species = ewas_species, twas
 ####################
 # Do permutation test
 ####################
-do_perm <- function(Target_species, topN, nperm, anno_input){
+do_perm <- function(Target_species, topN, nperm, anno_input, background_array, directory){
+  setwd(directory)
   start <- Sys.time()
   perm_pvalue = {}
   perm_actpct = {}
   for (i in 1:nperm) {
+    print(paste("Permutation round", i))
     set.seed(1106+i)
     perm <- # Randomlly sample 500 rows/1000 rows/50 rows/100 rows
-      dplyr::sample_n(bg_human, topN)
-    temp_perm <- TWASEWAS_perm(sig_gene_list = perm, ewas_species = Target_species, anno = anno_input) %>% dplyr::arrange(Index)
+      dplyr::sample_n(background_array[["human"]], topN)
+    temp_perm <- TWASEWAS_perm(sig_gene_list = perm, ewas_species = Target_species, anno = anno_input, background_array = background_array, directory = directory) %>% dplyr::arrange(Index)
     temp_pvalue <- as.numeric(temp_perm$P_value)
     temp_actpct <- as.numeric(temp_perm$Actual_pct)
     

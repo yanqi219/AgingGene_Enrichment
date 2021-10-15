@@ -73,11 +73,11 @@ annotation_file_name <- "TWASDataAnnotation.csv"
 
 output_pos <- TWASEWAS(sig_gene_list = pos, ewas_species = ewas_study_species, twas_species = NA, 
                        twas_category = NA, twas_database = NA, ewas_study = input_list, topX = topX_cpg,
-                       directory = working_dir, annotation_file_name = annotation_file_name) %>%
+                       directory = working_dir, annotation_file_name = annotation_file_name, num_permutation = 100) %>%
   dplyr::mutate(Direction = "Hyper")
 output_neg <- TWASEWAS(sig_gene_list = neg, ewas_species = ewas_study_species, twas_species = NA, 
                        twas_category = NA, twas_database = NA, ewas_study = input_list, topX = topX_cpg,
-                       directory = working_dir, annotation_file_name = annotation_file_name) %>%
+                       directory = working_dir, annotation_file_name = annotation_file_name, num_permutation = 100) %>%
   dplyr::mutate(Direction = "Hypo")
 
 output_all <- rbind(output_pos, output_neg) %>%
