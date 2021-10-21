@@ -1071,41 +1071,16 @@ for (i in c("Adrenals", "Cerebellum", "Eye", "Gonads", "Heart", "Lung", "Spleen"
   k=k+1
 }
 
-table <- read.xlsx(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Raw_Tables/Brawand_2011_MAML_T/Data/TWAS_maxlifespan/final_results.xlsx", sheetIndex = 2)
-
-readr::write_csv(table, path = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Reference_Database/697_Brawand_2011_MAML_T_TWASmaxlifespan_AllTissue_Lifespan.csv.gz", col_names = T)
-
-
-table <- read.xlsx(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Raw_Tables/Zahn_2007_MM_T/Data/Supplemental Table 2.xls", sheetName = i) %>%
-  dplyr::filter(p_val < 5e-4) %>%
-  dplyr::rename(Gene.Symbol = "Gene") %>%
-  dplyr::rename(Direction = "cluster") %>%
-  dplyr::mutate(Reference = "Wang_2020_MF_scT_STable4_Ovary_Stromal_Age")
-
-readr::write_csv(table, path = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Reference_Database/682_Wang_2020_MF_scT_STable4_Ovary_Stromal_Age.csv.gz", col_names = T)
-
-test <- read_csv(gzfile("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Reference_Database/670_Palmer_2021_MAML_T_STable4_Brain_Age.csv.gz"))
+table <- read.xlsx(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Raw_Tables/Villeda_2014_MM_T/Data/ST1.xlsx", sheetIndex = 1)
+table2 <- table %>%
+  tidyr::separate(IlluminaWG.6v2.Symbol.d.score.q.value....ABS_d.score, c("Gene.Symbol", "d_score", "q_value", "abd_d_score"), sep = " ") %>%
+  dplyr::filter(q_value < 0.2) %>%
+  dplyr::mutate(Reference = "Villeda_2014_MM_T_STable1_Hippocampus_Intervention")
 
 
-ortho <- read_tsv(file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Reference_Database/Raw/models_genes_GenAge/genage_models_orthologs_export.tsv")
-table <- read_csv("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/Reference_Database/Raw/models_genes_GenAge/genage_models.csv") %>%
-  dplyr::rename(model_symbol = "symbol") %>%
-  dplyr::left_join(ortho, by = c("model_symbol" = "ModelOrganismSymbol")) %>%
-  dplyr::rename(Gene.Symbol = "Symbol")
-table %>% dplyr::group_by(organism) %>%
-  summarise(n = n())
+readr::write_csv(table2, path = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_Intervention/Reference_Database/244_Villeda_2014_MM_T_STable1_Hippocampus_Intervention.csv.gz", col_names = T)
 
 
-library(GEOquery)
-gse <- getGEO("GSE81959") #Retrieve matrix data and store it in R object
-show(object = gse) ## To summarize the gse object
-x <- Biobase::exprs(gse[[1]]) ## print the expression data #Get expression set from gse object
-
-gse$GSE81959_series_matrix.txt.gz$characteristics_ch1.1
-gse$GSE81959_series_matrix.txt.gz$characteristics_ch1.2
-gse$GSE81959_series_matrix.txt.gz$characteristics_ch1.3
-
-Sys.setenv("VROOM_CONNECTION_SIZE" = 131072*1000)
 ```
 
 ## Questions

@@ -23,11 +23,12 @@ flog.info("Loading R packages...")
 # library(metaflow)
 library(tidyverse)
 source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/func2_TWASEWAS.R")
+source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/Utilities_vis.R")
 
 ###########################
 # Set working dir
 ###########################
-working_dir <- '/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/'
+working_dir <- '/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/'
 setwd(working_dir)
 flog.info("Working directory is %s", working_dir)
 
@@ -67,43 +68,90 @@ ewas_study_species = "human" # currently it can be human, mouse, or rat; will ad
 pos <- input %>% dplyr::filter(Group == "pos")
 neg <- input %>% dplyr::filter(Group == "neg")
 
-################## MAIN FUNCTION ##################
-working_dir <- '/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/'
+###########################
+# Start TWASEWAS
+###########################
+
+################## TWAS ##################
+working_dir_2 <- paste(working_dir, "DB_TWAS/", sep = "")
 annotation_file_name <- "TWASDataAnnotation.csv"
 
 output_pos <- TWASEWAS(sig_gene_list = pos, ewas_species = ewas_study_species, twas_species = NA, 
                        twas_category = NA, twas_database = NA, ewas_study = input_list, topX = topX_cpg,
-                       directory = working_dir, annotation_file_name = annotation_file_name, num_permutation = 100) %>%
+                       directory = working_dir_2, annotation_file_name = annotation_file_name, num_permutation = 100) %>%
   dplyr::mutate(Direction = "Hyper")
 output_neg <- TWASEWAS(sig_gene_list = neg, ewas_species = ewas_study_species, twas_species = NA, 
                        twas_category = NA, twas_database = NA, ewas_study = input_list, topX = topX_cpg,
-                       directory = working_dir, annotation_file_name = annotation_file_name, num_permutation = 100) %>%
+                       directory = working_dir_2, annotation_file_name = annotation_file_name, num_permutation = 100) %>%
   dplyr::mutate(Direction = "Hypo")
-
 output_all <- rbind(output_pos, output_neg) %>%
   arrange(perm_p_nonpar)
 
-write.table(output_all,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/TWASEWAS_enriched_results_phylo_weightAdjusted_allEWAS_lifespan.csv",sep=',',row.names = F,quote=F)
+write.table(output_all,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_TWAS_results_phylo_weightAdjusted_allEWAS_lifespan.csv",sep=',',row.names = F,quote=F)
+
+plot_enrichment(input_dir = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_TWAS_results_phylo_weightAdjusted_allEWAS_lifespan.csv",
+                figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_TWAS_results_phylo_weightAdjusted_allEWAS_lifespan.png",
+                p_threshold = 0.05, which_p = "gamma", min_hit = 5, figure_width = 2000, figure_height = 1200, figure_size = 8)
 ###################################################
 
-################## DRAW PLOT ##################
-output_all <- read_csv("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/TWASEWAS_enriched_results_phylo_weightAdjusted_allEWAS_lifespan.csv")
-plot <-                # Plot those with permutation p value < 0.05 and hit > 5
-  output_all %>%
-  dplyr::filter(perm_p_nonpar < 0.05) %>%
-  dplyr::filter(as.numeric(Hit) >= 3) %>%
-  dplyr::mutate(p.value.log10 = -log10(perm_p_nonpar+0.001)) %>%
-  dplyr::mutate(Actual_pct = as.numeric(Actual_pct)) %>%
-  dplyr::mutate(Direction = factor(Direction, levels = c("Hyper", "Hypo")))
-order <- unique(plot$Reference)
-plot <- plot %>%
-  dplyr::mutate(Reference = factor(Reference, levels = rev(order)))
+################## Intervention ##################
+working_dir_2 <- paste(working_dir, "DB_Intervention/", sep = "")
+annotation_file_name <- "InterventionDataAnnotation.csv"
 
-png(file="/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/TWASEWAS_enriched_results_phylo_weightAdjusted_allEWAS_lifespan.png", width=1600, height=800)
-ggplot(plot, aes_string(x="Actual_pct", y="Reference", size="Actual_pct", color="p.value.log10")) + 
-  geom_point() +
-  scale_color_continuous(low="blue", high="red", name = "-Log10(P-value)", guide=guide_colorbar(reverse=F)) +
-  ylab(NULL) + ggtitle("") + DOSE::theme_dose(24) + scale_size(range=c(6, 16)) +
-  facet_grid(. ~ Direction)
-dev.off()
-################################################
+output_pos <- TWASEWAS(sig_gene_list = pos, ewas_species = ewas_study_species, twas_species = NA, 
+                       twas_category = NA, twas_database = NA, ewas_study = input_list, topX = topX_cpg,
+                       directory = working_dir_2, annotation_file_name = annotation_file_name, num_permutation = 100) %>%
+  dplyr::mutate(Direction = "Hyper")
+output_neg <- TWASEWAS(sig_gene_list = neg, ewas_species = ewas_study_species, twas_species = NA, 
+                       twas_category = NA, twas_database = NA, ewas_study = input_list, topX = topX_cpg,
+                       directory = working_dir_2, annotation_file_name = annotation_file_name, num_permutation = 100) %>%
+  dplyr::mutate(Direction = "Hypo")
+output_all <- rbind(output_pos, output_neg) %>%
+  arrange(perm_p_nonpar)
+
+write.table(output_all,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_intervention_results_phylo_weightAdjusted_allEWAS_lifespan.csv",sep=',',row.names = F,quote=F)
+
+plot_enrichment(input_dir = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_intervention_results_phylo_weightAdjusted_allEWAS_lifespan.csv",
+                figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_intervention_results_phylo_weightAdjusted_allEWAS_lifespan.png",
+                p_threshold = 0.05, which_p = "gamma", min_hit = 5, figure_width = 2000, figure_height = 1200, figure_size = 8)
+###################################################
+
+######### Use BioThing API for annotation ##########
+# https://biothings.io/
+# https://docs.mygene.info/en/latest/doc/query_service.html
+source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/Utilities_geneInfo.R")
+
+genelist <- unique(c(pos$SYMBOL, neg$SYMBOL))
+
+geneinfo_final <- MyGeneIO_do_annotation(input_genelist = genelist, input_type = "symbol", gene_species = "human")
+write.table(geneinfo_final,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Geneinfo_results_phylo_weightAdjusted_allEWAS_lifespan.csv",sep=',',row.names = F,quote=F)
+####################################################
+
+############### Get OMIM information ###############
+# Need to require personal OMIM api key through: https://www.omim.org/api; will take only a few minutes
+source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/Utilities_geneInfo.R")
+
+OMIM_set_key('O9R9PTKZSCKxWM7pXPb2jg')
+
+genelist <- unique(c(pos$SYMBOL, neg$SYMBOL))
+
+omim_final <- {}
+for (i in 1:length(genelist)) {
+  gene_name_temp = genelist[i]
+  temp <- OMIM_do_gene2omim(gene_name = gene_name_temp)
+  omim_final <- rbind(omim_final, temp)
+}
+write.table(omim_final,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/OMIM_results_phylo_weightAdjusted_allEWAS_lifespan.csv",sep=',',row.names = F,quote=F)
+####################################################
+
+############### Get Drug-Gene interaction information ###############
+# Try to get druggable genes/genes that are know drug targets based on the DGIdb. https://academic.oup.com/nar/article/49/D1/D1144/6006193?login=true
+# https://www.dgidb.org/api
+source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/Utilities_geneInfo.R")
+
+genelist <- unique(c(pos$SYMBOL, neg$SYMBOL))
+
+DGIdb_final <- DGIdb_gene_to_drug(gene = genelist, fda_approved_drug = T)
+
+write.table(DGIdb_final,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/DGIdb_results_phylo_weightAdjusted_allEWAS_lifespan.csv",sep=',',row.names = F,quote=F)
+######################################################################
