@@ -52,8 +52,8 @@ flog.info("Number of hypomethylated CpGs: %s", sum(input$Group == "neg"))
 if(sum(input$Group == "pos") > topX_cpg | sum(input$Group == "neg") > topX_cpg){
   flog.warn("There are more than X hyper or hypomethylated probes used as input, so restrict to top X for each group")
   input <- input %>%
-    arrange(desc(abs(Meta))) %>% 
-    group_by(Group) %>% slice(1:topX_cpg)
+    dplyr::arrange(desc(abs(Meta))) %>% 
+    dplyr::group_by(Group) %>% dplyr::slice(1:topX_cpg)
 }
 
 if(sum(c("CGid", "SYMBOL") %in% colnames(input)) != 2){
@@ -145,7 +145,7 @@ write.table(omim_final,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/A
 ####################################################
 
 ############### Get Drug-Gene interaction information ###############
-# Try to get druggable genes/genes that are know drug targets based on the DGIdb. https://academic.oup.com/nar/article/49/D1/D1144/6006193?login=true
+# Try to get druggable genes/genes that are known drug targets based on the DGIdb. https://academic.oup.com/nar/article/49/D1/D1144/6006193?login=true
 # https://www.dgidb.org/api
 source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/Utilities_geneInfo.R")
 
@@ -155,3 +155,47 @@ DGIdb_final <- DGIdb_gene_to_drug(gene = genelist, fda_approved_drug = T)
 
 write.table(DGIdb_final,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/DGIdb_results_phylo_weightAdjusted_allEWAS_lifespan.csv",sep=',',row.names = F,quote=F)
 ######################################################################
+
+############### Get PPI information ###############
+# https://www.r-bloggers.com/2012/06/obtaining-a-protein-protein-interaction-network-for-a-gene-list-in-r/
+source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/Utilities_geneInfo.R")
+
+genelist <- unique(c(pos$SYMBOL, neg$SYMBOL))
+
+DGIdb_final <- DGIdb_gene_to_drug(gene = genelist, fda_approved_drug = T)
+
+write.table(DGIdb_final,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/DGIdb_results_phylo_weightAdjusted_allEWAS_lifespan.csv",sep=',',row.names = F,quote=F)
+######################################################################
+
+############### Combine and generate report ###############
+# Combine top probes w/ gene information
+Final_gene_report <- input %>%
+  dplyr::arrange(-(abs(Meta))) %>%
+  dplyr::mutate(meta_rank = dense_rank(-(abs(Meta)))) %>%
+  dplyr::left_join(geneinfo_final, by = "SYMBOL") %>%
+  dplyr::left_join(omim_final, by = "SYMBOL") %>%
+  dplyr::left_join(DGIdb_final, by = "SYMBOL")
+
+# Calculate number of enriched gene sets per probe
+twas <- read_csv("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_TWAS_results_phylo_weightAdjusted_allEWAS_lifespan.csv")
+intervention <- read_csv("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_intervention_results_phylo_weightAdjusted_allEWAS_lifespan.csv")
+
+Stat_enriched <- function(x, enrich_dat = twas){
+  Num_enriched <- sum(grepl(x["SYMBOL"], enrich_dat$Hit_genes, fixed = T))
+  Index_enriched <- paste(enrich_dat$Index[which(grepl(x["SYMBOL"], enrich_dat$Hit_genes, fixed = T))], collapse = ";")
+  Ref_enriched <- paste(enrich_dat$Reference[which(grepl(x["SYMBOL"], enrich_dat$Hit_genes, fixed = T))], collapse = ";")
+  out <- c(Num_enriched, Index_enriched, Ref_enriched)
+  return(out)
+}
+
+out_twas <- data.frame(t(apply(Final_gene_report, 1, function(x) Stat_enriched(x, enrich_dat = twas))))
+colnames(out_twas) <- c("num_twas_enriched", "index_twas_enriched", "ref_twas_enriched")
+
+out_intervention <- data.frame(t(apply(Final_gene_report, 1, function(x) Stat_enriched(x, enrich_dat = intervention))))
+colnames(out_intervention) <- c("num_intervention_enriched", "index_intervention_enriched", "ref_intervention_enriched")
+
+Final_gene_report <- cbind(Final_gene_report, out_twas, out_intervention)
+write_csv(Final_gene_report, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/FinalReport_phylo_weightAdjusted_allEWAS_lifespan.csv")
+###########################################################
+
+
