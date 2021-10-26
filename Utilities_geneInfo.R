@@ -119,7 +119,7 @@
     # type: type of the input (symbol, entrezgene, etc.) Details can be found in https://docs.mygene.info/en/latest/doc/query_service.html
     # species: species of interest, can use common name
     # field: output information
-    gene = paste(genelist,collapse = ",")
+    gene = paste(gene,collapse = ",")
     
     params <- paste("q=", gene, "&scopes=", type, "&fields=", field, "&species=", species, sep = "")
     res <- httr::POST('http://mygene.info/v3/query', body = params, add_headers(.headers = c("Content-Type"="application/x-www-form-urlencoded")))
@@ -246,7 +246,7 @@
     # gene_categories: A comma delimited list of gene categories to include in the result set. If this field is omitted, all gene categories will be included.
     # source_trust_levels: A comma delimited list of source trust levels to include in the result set. If this field is omitted, all trust levels will be included.
     
-    gene = paste(genelist,collapse = ",")
+    gene = paste(gene,collapse = ",")
     my_query <- paste("https://dgidb.org/api/v2/interactions.json?", "genes=", gene, sep = "")
     
     # Apply filters
@@ -314,7 +314,7 @@
                                  gene_categories = NA, source_trust_levels = NA){
     # drug: List of drugs
     
-    drug = paste(druglist,collapse = ",")
+    drug = paste(drug,collapse = ",")
     my_query <- paste("https://dgidb.org/api/v2/interactions.json?", "drugs=", drug, sep = "")
     
     # Apply filters
@@ -374,32 +374,66 @@
 # Get protein-protein interaction network based on NCBI - BioGRID and HPRD
 ####################
 # https://www.r-bloggers.com/2012/06/obtaining-a-protein-protein-interaction-network-for-a-gene-list-in-r/
+# https://string-db.org/cgi/help?sessionId=bG1bJi29suUF
 {
-  PPI_getppiNCBI <- function(g.n) {
-    require(XML)
-    ppi <- data.frame()
-    for(i in 1:length(g.n)){
-      o <- htmlParse(paste("https://www.ncbi.nlm.nih.gov/gene/", g.n[i], sep=''))
-      # check if interaction table exists
-      exist <- length(getNodeSet(o, "//table//th[@id='inter-prod']"))>0
-      if(exist){
-        p <- getNodeSet(o, "//table")
-        ## need to know which table is the good one
-        for(j in 1:length(p)){
-          int <- readHTMLTable(p[[j]])
-          if(colnames(int)[2]=="Interactant"){break}
-        }
-        ppi <- rbind(ppi, data.frame(egID=g.n[i], intSymbol=int$`Other Gene`))
-      }
-      # play nice! and avoid being kicked out from NCBI servers
-      Sys.sleep(1)
-    }
-    if(dim(ppi)[1]>0){
-      ppi <- unique(ppi)
-      print(paste(dim(ppi)[1], "interactions found"))
-      return(ppi)
-    } else{
-      print("No interaction found")
-    }
+  library(igraph)
+  
+  PPI_getppiSTRING <- function(gene = genelist, species = "9606", required_score = "700", output_format = "tsv", method = "network") {
+    gene <- paste(gene,collapse = "%0d")
+    
+    url <- paste("https://version-11-5.string-db.org/api", output_format, method, sep = "/")
+    params <- paste("identifiers=", gene, "&caller_identity=", "ewastwas", "&species=", species, "&required_score=", required_score, sep = "")
+    res <- httr::POST(url, body = params, add_headers(.headers = c("Content-Type"="application/x-www-form-urlencoded")))
+    data <- matrix(unlist(stringr::str_split(rawToChar(res$content), pattern = "\n")), ncol = 1)
+    data <- apply(data, 1, function(x) unlist(stringr::str_split(x, pattern = "\t")))
+    data <- data.frame(t(as.data.frame(data)))
+    colnames(data) <- data[1,]
+    rownames(data) <- 1:nrow(data)
+    data <- data[-1,] %>%
+      dplyr::filter(!duplicated(.))
+    return(data)
   }
+  
+  PPI_networkStat <- function(network = data, gene = genelist, min_module_size = 30){
+    # Degree centrality is simplest of the methods, it measures the number of connections between a node and all other nodes.
+    
+    # Closeness centrality is an evaluation of the proximity of a node to all other nodes in a network, not only the nodes to which 
+    # it is directly connected. The closeness centrality of a node is defined by the inverse of the average length of the shortest 
+    # paths to or from all the other nodes in the graph. The absolute closeness of node i to the other nodes j is given by 
+    # C−1APi=∑nj=1dij. The relative closeness is then calculated by accounting for the number of nodes in the network by: 
+    # CNPi=(n−1)/C−1APi
+    
+    # Betweenness centrality offers another way of measuring an individuals centrality. In social networks there can be weakly 
+    # connected individuals who are still indispensale to certail transactions. Although these individuals may not have a high 
+    # level of degree centrality, they may be chokepoints through which information moves. The betweenness of a given point to two 
+    # other points is its capacity of standing on the paths that connect them (Degenne and Forse 1999). Nodes that are connect to other 
+    # nodes. https://www.coursera.org/lecture/python-social-network-analysis/betweenness-centrality-5rwMl
+    
+    network <- network[,-c(1:2)]
+    network <- network %>%
+      dplyr::filter(preferredName_A %in% gene & preferredName_B %in% gene) # There are some discrepancy between gene name like MARCH7 and MARCHF7, so now decide to remove them...
+    ppi_node <- data.frame(SYMBOL = gene)
+    ppi_network <- igraph::graph_from_data_frame(d=network, directed=F, vertices = ppi_node)
+    
+    # Degree Centrality
+    ppi_node$ppi_degree<- igraph::degree(ppi_network, mode="all")
+    # Closeness Centrality
+    ppi_node$ppi_closeness<- igraph::closeness(ppi_network, mode="all", weights=NA, normalized=T)
+    # Betweenness Centrality
+    ppi_node$ppi_between <- igraph::betweenness(ppi_network, directed=F, weights=NA, normalized = T)
+    # Hub score
+    ppi_node$ppi_hubscore <- igraph::hub_score(ppi_network)$vector
+    
+    
+    # Calculated community
+    # https://users.dimi.uniud.it/~massimo.franceschet/R/communities.html
+    # https://igraph.org/r/doc/cluster_fast_greedy.html
+    c1 = cluster_fast_greedy(ppi_network)
+    membership(c1)
+    ppi_node$ppi_module <- membership(c1) 
+    ppi_node <- ppi_node %>% dplyr::mutate(ppi_module = ifelse(ppi_module %in% which(sizes(c1) > min_module_size), ppi_module, NA)) # Only keep those module with more than 30 proteins
+    
+    return(ppi_node)
+  }
+  
 }
