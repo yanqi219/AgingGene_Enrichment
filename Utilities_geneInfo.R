@@ -215,7 +215,18 @@
   MyGeneIO_do_annotation <- function(input_genelist, input_type = "symbol", gene_species = "human"){
     gene_info <- MyGeneIO_gene_query(gene = input_genelist, type = input_type, species = gene_species, field = "name,symbol,taxid,entrezgene")
     geneid <- gene_info$entrezgene
-    gene_info_final <- MyGeneIO_gene_annotation(entrez = geneid, species = gene_species) # Many info can be retrieved, for now we will focus on GO and pathway
+    
+    if(length(geneid) > 1000){ # Has a 1000 gene limitation
+      geneid_split <- split(geneid, (0:length(geneid) %/% 1000))
+      gene_info_final <- {}
+      for (k in 1:length(geneid_split)) {
+        gene_info_temp <- MyGeneIO_gene_annotation(entrez = geneid_split[[k]], species = gene_species)
+        gene_info_final <- rbind(gene_info_final, gene_info_temp)
+      }
+    }else if(length(geneid) <= 1000){
+      gene_info_final <- MyGeneIO_gene_annotation(entrez = geneid, species = gene_species) # Many info can be retrieved, for now we will focus on GO and pathway
+    }
+
     gene_info_final <- gene_info_final %>% dplyr::rename(SYMBOL = "symbol")
     return(gene_info_final)
   }

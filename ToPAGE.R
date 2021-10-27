@@ -38,10 +38,10 @@ flog.info("Working directory is %s", working_dir)
 # Load input CpG list
 ###########################
 input_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/EWASmaxlifespan_topGene_local/topCG_Ake/"
-input_list = "Metal_pgm5_combine_all_species_tissue_stouffer_step2_1.HG38.txt.gz"
+input_list = "Metal_pgm6_combine_all_species_Blood_tissue_stouffer_1.HG38.csv.gz"
 topX_cpg = 1000                 ####### How many CpGs do we want to keep as input list
-save_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021"
-save_file_name = "tissue"
+save_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/"
+save_file_name = "blood"
 
 if (!file.exists(paste(save_file_loc, save_file_name, sep = ""))){ # create folder if not existing
   dir.create(paste(save_file_loc, save_file_name, sep = ""))
@@ -49,12 +49,24 @@ if (!file.exists(paste(save_file_loc, save_file_name, sep = ""))){ # create fold
 
 flog.info("Reading input CpG list: %s", input_list)
 
-input <- read.csv(file = paste(input_file_loc, input_list, sep = ""), header = T)
-input <- input %>% # Generate a column indicate whether it's hyper or hypomethylation
-  dplyr::mutate(Meta = gsub("\\(.*", "", Meta)) %>%
-  # dplyr::rename(Meta = "X57.PGLS.EWAS.Log.maxAgeCaesar.OrderALL.TissueALL.N215") %>%
-  dplyr::mutate(Meta = as.numeric(Meta)) %>%
-  dplyr::mutate(Group = ifelse(Meta > 0, "pos", "neg"))
+# { # Caesar's input
+#   input <- read.csv(file = paste(input_file_loc, input_list, sep = ""), header = T)
+#   input <- input %>% # Generate a column indicate whether it's hyper or hypomethylation
+#     dplyr::mutate(Meta = gsub("\\(.*", "", Meta)) %>%
+#     # dplyr::rename(Meta = "X57.PGLS.EWAS.Log.maxAgeCaesar.OrderALL.TissueALL.N215") %>%
+#     dplyr::mutate(Meta = as.numeric(Meta)) %>%
+#     dplyr::mutate(Group = ifelse(Meta > 0, "pos", "neg"))
+# }
+
+{# Ake's input
+  input <- read_csv(gzfile(paste(input_file_loc, input_list, sep = "")), col_names = TRUE)
+  input <- input %>% # Generate a column indicate whether it's hyper or hypomethylation
+    dplyr::rename(SYMBOL = "Gene") %>%
+    dplyr::rename(CGid = "CpG") %>%
+    dplyr::rename(Meta = "Meta.Z") %>%
+    dplyr::mutate(Meta = as.numeric(Meta)) %>%
+    dplyr::mutate(Group = ifelse(Meta > 0, "pos", "neg"))
+}
 
 flog.info("Number of hypermethylated CpGs: %s", sum(input$Group == "pos")) # Check the number of input probes
 flog.info("Number of hypomethylated CpGs: %s", sum(input$Group == "neg"))
@@ -82,6 +94,7 @@ neg <- input %>% dplyr::filter(Group == "neg")
 ###########################
 
 ################## TWAS ##################
+flog.info("Starting TWASEWAS...")
 working_dir_2 <- paste(working_dir, "DB_TWAS/", sep = "")
 annotation_file_name <- "TWASDataAnnotation.csv"
 
@@ -102,9 +115,11 @@ saveRDS(output_all, file = paste(save_file_loc, save_file_name, "/Enriched_TWAS_
 plot_enrichment(input_dir = paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".csv", sep = ""),
                 figure_dir = paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".png", sep = ""),
                 p_threshold = 0.05, which_p = "gamma", min_hit = 5, figure_width = 2000, figure_height = 1200, figure_size = 8)
+flog.info("Done TWASEWAS")
 ###################################################
 
 ################## Intervention ##################
+flog.info("Starting InterventionEWAS...")
 working_dir_2 <- paste(working_dir, "DB_Intervention/", sep = "")
 annotation_file_name <- "InterventionDataAnnotation.csv"
 
@@ -126,9 +141,11 @@ saveRDS(output_all, file = paste(save_file_loc, save_file_name, "/Enriched_inter
 plot_enrichment(input_dir = paste(save_file_loc, save_file_name, "/Enriched_intervention_results_", save_file_name, ".csv", sep = ""),
                 figure_dir = paste(save_file_loc, save_file_name, "/Enriched_intervention_results_", save_file_name, ".png", sep = ""),
                 p_threshold = 0.05, which_p = "gamma", min_hit = 5, figure_width = 2000, figure_height = 1200, figure_size = 8)
+flog.info("Done TWASEWAS")
 ###################################################
 
 ######### Use BioThing API for annotation ##########
+flog.info("Starting BioThings...")
 # https://biothings.io/
 # https://docs.mygene.info/en/latest/doc/query_service.html
 source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/Utilities_geneInfo.R")
@@ -138,9 +155,11 @@ genelist <- unique(c(pos$SYMBOL, neg$SYMBOL))
 geneinfo_final <- MyGeneIO_do_annotation(input_genelist = genelist, input_type = "symbol", gene_species = "human")
 write.table(geneinfo_final,file = paste(save_file_loc, save_file_name, "/Geneinfo_results_", save_file_name, ".csv", sep = ""),sep=',',row.names = F,quote=F)
 saveRDS(geneinfo_final, file = paste(save_file_loc, save_file_name, "/Geneinfo_results_", save_file_name, ".rds", sep = ""))
+flog.info("Done BioThings")
 ####################################################
 
 ############### Get OMIM information ###############
+flog.info("Starting OMIM...")
 # Need to require personal OMIM api key through: https://www.omim.org/api; will take only a few minutes
 source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/Utilities_geneInfo.R")
 
@@ -156,9 +175,11 @@ for (i in 1:length(genelist)) {
 }
 write.table(omim_final,file = paste(save_file_loc, save_file_name, "/OMIM_results_", save_file_name, ".csv", sep = ""),sep=',',row.names = F,quote=F)
 saveRDS(omim_final, file = paste(save_file_loc, save_file_name, "/OMIM_results_", save_file_name, ".rds", sep = ""))
+flog.info("Done OMIM")
 ####################################################
 
 ############### Get Drug-Gene interaction information ###############
+flog.info("Starting DGIdb...")
 # Try to get druggable genes/genes that are known drug targets based on the DGIdb. https://academic.oup.com/nar/article/49/D1/D1144/6006193?login=true
 # https://www.dgidb.org/api
 source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/Utilities_geneInfo.R")
@@ -172,9 +193,11 @@ DGIdb_final$DGIdb_AgeDrug <- apply(DGIdb_final, 1, function(x) paste(toupper(str
 
 write.table(DGIdb_final,file = paste(save_file_loc, save_file_name, "/DGIdb_results_", save_file_name, ".csv", sep = ""),sep=',',row.names = F,quote=F)
 saveRDS(DGIdb_final, file = paste(save_file_loc, save_file_name, "/DGIdb_results_", save_file_name, ".rds", sep = ""))
+flog.info("Done DGIdb")
 ######################################################################
 
 ############### Get PPI information ###############
+flog.info("Starting STRING...")
 # https://www.r-bloggers.com/2012/06/obtaining-a-protein-protein-interaction-network-for-a-gene-list-in-r/
 source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/Utilities_geneInfo.R")
 
@@ -186,9 +209,11 @@ write.table(ppi_network,file = paste(save_file_loc, save_file_name, "/PPI_networ
 saveRDS(ppi_network,file = paste(save_file_loc, save_file_name, "/PPI_network_", save_file_name, ".rds", sep = ""))
 write.table(ppi_final,file = paste(save_file_loc, save_file_name, "/PPI_results_", save_file_name, ".csv", sep = ""),sep=',',row.names = F,quote=F)
 saveRDS(ppi_final,file = paste(save_file_loc, save_file_name, "/PPI_results_", save_file_name, ".rds", sep = ""))
+flog.info("Done STRING")
 ######################################################################
 
 ############### Combine and generate report ###############
+flog.info("Generating final reports")
 # Combine top probes w/ gene information
 Final_gene_report <- input %>%
   dplyr::arrange(-(abs(Meta))) %>%
