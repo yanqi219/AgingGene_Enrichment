@@ -16,6 +16,8 @@ sessionInfo()
 rm(list=ls())
 options(StringsAsFactor=F)
 
+start_time <- Sys.time()
+
 ###########################
 # Load R Packages
 ###########################
@@ -28,19 +30,26 @@ source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGe
 ###########################
 # Set working dir
 ###########################
-working_dir <- '/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/'
+working_dir <- '/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/' # should be where we store our references
 setwd(working_dir)
 flog.info("Working directory is %s", working_dir)
 
 ###########################
 # Load input CpG list
 ###########################
-input_list = "Eutherians_phylo_weightAdjusted_allEWAS_lifespan.csv"
-topX_cpg = 500                 ####### How many CpGs do we want to keep as input list
+input_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/EWASmaxlifespan_topGene_local/topCG_Ake/"
+input_list = "Metal_pgm5_combine_all_species_tissue_stouffer_step2_1.HG38.txt.gz"
+topX_cpg = 1000                 ####### How many CpGs do we want to keep as input list
+save_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021"
+save_file_name = "tissue"
+
+if (!file.exists(paste(save_file_loc, save_file_name, sep = ""))){ # create folder if not existing
+  dir.create(paste(save_file_loc, save_file_name, sep = ""))
+}
 
 flog.info("Reading input CpG list: %s", input_list)
 
-input <- read.csv(file = paste("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/EWASmaxlifespan_topGene_local/topCG_Caesar/", input_list, sep = ""), header = T)
+input <- read.csv(file = paste(input_file_loc, input_list, sep = ""), header = T)
 input <- input %>% # Generate a column indicate whether it's hyper or hypomethylation
   dplyr::mutate(Meta = gsub("\\(.*", "", Meta)) %>%
   # dplyr::rename(Meta = "X57.PGLS.EWAS.Log.maxAgeCaesar.OrderALL.TissueALL.N215") %>%
@@ -87,11 +96,11 @@ output_neg <- TWASEWAS(sig_gene_list = neg, ewas_species = ewas_study_species, t
 output_all <- rbind(output_pos, output_neg) %>%
   arrange(perm_p_nonpar)
 
-write.table(output_all,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_TWAS_results_phylo_weightAdjusted_allEWAS_lifespan.csv",sep=',',row.names = F,quote=F)
-saveRDS(output_all, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_TWAS_results_phylo_weightAdjusted_allEWAS_lifespan.rds")
+write.table(output_all,file = paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".csv", sep = ""), sep=',', row.names = F, quote=F)
+saveRDS(output_all, file = paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".rds", sep = ""))
 
-plot_enrichment(input_dir = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_TWAS_results_phylo_weightAdjusted_allEWAS_lifespan.csv",
-                figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_TWAS_results_phylo_weightAdjusted_allEWAS_lifespan.png",
+plot_enrichment(input_dir = paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".csv", sep = ""),
+                figure_dir = paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".png", sep = ""),
                 p_threshold = 0.05, which_p = "gamma", min_hit = 5, figure_width = 2000, figure_height = 1200, figure_size = 8)
 ###################################################
 
@@ -110,12 +119,12 @@ output_neg <- TWASEWAS(sig_gene_list = neg, ewas_species = ewas_study_species, t
 output_all <- rbind(output_pos, output_neg) %>%
   arrange(perm_p_nonpar)
 
-write.table(output_all,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_intervention_results_phylo_weightAdjusted_allEWAS_lifespan.csv",sep=',',row.names = F,quote=F)
-saveRDS(output_all, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_intervention_results_phylo_weightAdjusted_allEWAS_lifespan.rds")
+write.table(output_all,file = paste(save_file_loc, save_file_name, "/Enriched_intervention_results_", save_file_name, ".csv", sep = ""),sep=',',row.names = F,quote=F)
+saveRDS(output_all, file = paste(save_file_loc, save_file_name, "/Enriched_intervention_results_", save_file_name, ".rds", sep = ""))
 
 
-plot_enrichment(input_dir = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_intervention_results_phylo_weightAdjusted_allEWAS_lifespan.csv",
-                figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_intervention_results_phylo_weightAdjusted_allEWAS_lifespan.png",
+plot_enrichment(input_dir = paste(save_file_loc, save_file_name, "/Enriched_intervention_results_", save_file_name, ".csv", sep = ""),
+                figure_dir = paste(save_file_loc, save_file_name, "/Enriched_intervention_results_", save_file_name, ".png", sep = ""),
                 p_threshold = 0.05, which_p = "gamma", min_hit = 5, figure_width = 2000, figure_height = 1200, figure_size = 8)
 ###################################################
 
@@ -127,8 +136,8 @@ source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGe
 genelist <- unique(c(pos$SYMBOL, neg$SYMBOL))
 
 geneinfo_final <- MyGeneIO_do_annotation(input_genelist = genelist, input_type = "symbol", gene_species = "human")
-write.table(geneinfo_final,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Geneinfo_results_phylo_weightAdjusted_allEWAS_lifespan.csv",sep=',',row.names = F,quote=F)
-saveRDS(geneinfo_final, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Geneinfo_results_phylo_weightAdjusted_allEWAS_lifespan.rds")
+write.table(geneinfo_final,file = paste(save_file_loc, save_file_name, "/Geneinfo_results_", save_file_name, ".csv", sep = ""),sep=',',row.names = F,quote=F)
+saveRDS(geneinfo_final, file = paste(save_file_loc, save_file_name, "/Geneinfo_results_", save_file_name, ".rds", sep = ""))
 ####################################################
 
 ############### Get OMIM information ###############
@@ -145,8 +154,8 @@ for (i in 1:length(genelist)) {
   temp <- OMIM_do_gene2omim(gene_name = gene_name_temp)
   omim_final <- rbind(omim_final, temp)
 }
-write.table(omim_final,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/OMIM_results_phylo_weightAdjusted_allEWAS_lifespan.csv",sep=',',row.names = F,quote=F)
-saveRDS(omim_final, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/OMIM_results_phylo_weightAdjusted_allEWAS_lifespan.rds")
+write.table(omim_final,file = paste(save_file_loc, save_file_name, "/OMIM_results_", save_file_name, ".csv", sep = ""),sep=',',row.names = F,quote=F)
+saveRDS(omim_final, file = paste(save_file_loc, save_file_name, "/OMIM_results_", save_file_name, ".rds", sep = ""))
 ####################################################
 
 ############### Get Drug-Gene interaction information ###############
@@ -161,8 +170,8 @@ DGIdb_final <- DGIdb_gene_to_drug(gene = genelist, fda_approved_drug = T)
 drugage <- read_csv("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Raw_Tables/DrugAge/DrugAge Browse.csv")
 DGIdb_final$DGIdb_AgeDrug <- apply(DGIdb_final, 1, function(x) paste(toupper(stringr::str_split(x["DGIdb_drugName"], ";")[[1]]) %in% toupper(drugage$`Compound/Formulation`), collapse = ";"))
 
-write.table(DGIdb_final,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/DGIdb_results_phylo_weightAdjusted_allEWAS_lifespan.csv",sep=',',row.names = F,quote=F)
-saveRDS(DGIdb_final, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/DGIdb_results_phylo_weightAdjusted_allEWAS_lifespan.rds")
+write.table(DGIdb_final,file = paste(save_file_loc, save_file_name, "/DGIdb_results_", save_file_name, ".csv", sep = ""),sep=',',row.names = F,quote=F)
+saveRDS(DGIdb_final, file = paste(save_file_loc, save_file_name, "/DGIdb_results_", save_file_name, ".rds", sep = ""))
 ######################################################################
 
 ############### Get PPI information ###############
@@ -173,10 +182,10 @@ genelist <- unique(c(pos$SYMBOL, neg$SYMBOL))
 ppi_network <- PPI_getppiSTRING(gene = genelist, species = "9606", required_score = "700", output_format = "tsv", method = "network")
 ppi_final <- PPI_networkStat(network = ppi_network, gene = genelist, min_module_size = 30)
 
-write.table(ppi_network,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/PPI_network_phylo_weightAdjusted_allEWAS_lifespan.csv",sep=',',row.names = F,quote=F)
-saveRDS(ppi_network,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/PPI_network_phylo_weightAdjusted_allEWAS_lifespan.rds")
-write.table(ppi_final,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/PPI_results_phylo_weightAdjusted_allEWAS_lifespan.csv",sep=',',row.names = F,quote=F)
-saveRDS(ppi_final,file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/PPI_results_phylo_weightAdjusted_allEWAS_lifespan.rds")
+write.table(ppi_network,file = paste(save_file_loc, save_file_name, "/PPI_network_", save_file_name, ".csv", sep = ""),sep=',',row.names = F,quote=F)
+saveRDS(ppi_network,file = paste(save_file_loc, save_file_name, "/PPI_network_", save_file_name, ".rds", sep = ""))
+write.table(ppi_final,file = paste(save_file_loc, save_file_name, "/PPI_results_", save_file_name, ".csv", sep = ""),sep=',',row.names = F,quote=F)
+saveRDS(ppi_final,file = paste(save_file_loc, save_file_name, "/PPI_results_", save_file_name, ".rds", sep = ""))
 ######################################################################
 
 ############### Combine and generate report ###############
@@ -190,8 +199,8 @@ Final_gene_report <- input %>%
   dplyr::left_join(ppi_final, by = "SYMBOL")
 
 # Calculate number of enriched gene sets per probe
-twas <- read_csv("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_TWAS_results_phylo_weightAdjusted_allEWAS_lifespan.csv")
-intervention <- read_csv("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Enriched_intervention_results_phylo_weightAdjusted_allEWAS_lifespan.csv")
+twas <- read_csv(paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".csv", sep = ""))
+intervention <- read_csv(paste(save_file_loc, save_file_name, "/Enriched_intervention_results_", save_file_name, ".csv", sep = ""))
 
 Stat_enriched <- function(x, enrich_dat = twas){
   Num_enriched <- sum(grepl(x["SYMBOL"], enrich_dat$Hit_genes, fixed = T))
@@ -208,8 +217,9 @@ out_intervention <- data.frame(t(apply(Final_gene_report, 1, function(x) Stat_en
 colnames(out_intervention) <- c("num_intervention_enriched", "index_intervention_enriched", "ref_intervention_enriched")
 
 Final_gene_report <- cbind(Final_gene_report, out_twas, out_intervention)
-write.csv(Final_gene_report, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/FinalReport_phylo_weightAdjusted_allEWAS_lifespan.csv", row.names = F, col.names = T)
-saveRDS(Final_gene_report, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/FinalReport_phylo_weightAdjusted_allEWAS_lifespan.csv")
+write.csv(Final_gene_report, file = paste(save_file_loc, save_file_name, "/FinalReport_", save_file_name, ".csv", sep = ""), row.names = F, col.names = T)
+saveRDS(Final_gene_report, file = paste(save_file_loc, save_file_name, "/FinalReport_", save_file_name, ".rds", sep = ""))
 ###########################################################
 
-
+end_time <- Sys.time()
+end_time - start_time
