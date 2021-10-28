@@ -37,11 +37,11 @@ flog.info("Working directory is %s", working_dir)
 ###########################
 # Load input CpG list
 ###########################
-input_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/EWASmaxlifespan_topGene_local/topCG_Ake/"
-input_list = "Metal_pgm6_combine_all_species_Blood_tissue_stouffer_1.HG38.csv.gz"
-topX_cpg = 1000                 ####### How many CpGs do we want to keep as input list
-save_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/"
-save_file_name = "blood"
+input_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/EWASmaxlifespan_topGene_local/topCG_Caesar/"
+input_list = "Eutherians_phylo_weightAdjusted_allEWAS_lifespan.csv"
+topX_cpg = 500                 ####### How many CpGs do we want to keep as input list
+save_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Nov2021/"
+save_file_name = input_list %>% gsub("Eutherians_", "", .) %>% gsub(".csv", "", .)
 
 if (!file.exists(paste(save_file_loc, save_file_name, sep = ""))){ # create folder if not existing
   dir.create(paste(save_file_loc, save_file_name, sep = ""))
@@ -49,24 +49,24 @@ if (!file.exists(paste(save_file_loc, save_file_name, sep = ""))){ # create fold
 
 flog.info("Reading input CpG list: %s", input_list)
 
-# { # Caesar's input
-#   input <- read.csv(file = paste(input_file_loc, input_list, sep = ""), header = T)
-#   input <- input %>% # Generate a column indicate whether it's hyper or hypomethylation
-#     dplyr::mutate(Meta = gsub("\\(.*", "", Meta)) %>%
-#     # dplyr::rename(Meta = "X57.PGLS.EWAS.Log.maxAgeCaesar.OrderALL.TissueALL.N215") %>%
-#     dplyr::mutate(Meta = as.numeric(Meta)) %>%
-#     dplyr::mutate(Group = ifelse(Meta > 0, "pos", "neg"))
-# }
-
-{# Ake's input
-  input <- read_csv(gzfile(paste(input_file_loc, input_list, sep = "")), col_names = TRUE)
+{ # Caesar's input
+  input <- read.csv(file = paste(input_file_loc, input_list, sep = ""), header = T)
   input <- input %>% # Generate a column indicate whether it's hyper or hypomethylation
-    dplyr::rename(SYMBOL = "Gene") %>%
-    dplyr::rename(CGid = "CpG") %>%
-    dplyr::rename(Meta = "Meta.Z") %>%
+    dplyr::mutate(Meta = gsub("\\(.*", "", Meta)) %>%
+    # dplyr::rename(Meta = "X57.PGLS.EWAS.Log.maxAgeCaesar.OrderALL.TissueALL.N215") %>%
     dplyr::mutate(Meta = as.numeric(Meta)) %>%
     dplyr::mutate(Group = ifelse(Meta > 0, "pos", "neg"))
 }
+
+# {# Ake's input
+#   input <- read_csv(gzfile(paste(input_file_loc, input_list, sep = "")), col_names = TRUE)
+#   input <- input %>% # Generate a column indicate whether it's hyper or hypomethylation
+#     dplyr::rename(SYMBOL = "Gene") %>%
+#     dplyr::rename(CGid = "CpG") %>%
+#     dplyr::rename(Meta = "Meta.Z") %>%
+#     dplyr::mutate(Meta = as.numeric(Meta)) %>%
+#     dplyr::mutate(Group = ifelse(Meta > 0, "pos", "neg"))
+# }
 
 flog.info("Number of hypermethylated CpGs: %s", sum(input$Group == "pos")) # Check the number of input probes
 flog.info("Number of hypomethylated CpGs: %s", sum(input$Group == "neg"))

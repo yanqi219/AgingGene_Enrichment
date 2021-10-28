@@ -44,7 +44,7 @@ get_perm_pvalue <- function(actual_data = output_pos, n_perm = 100, method = "ga
         # fitdistrplus::plotdist(as.vector(a), histo = TRUE, demp = TRUE)
         invisible(capture.output(fit.gamma <- fitdistrplus::fitdist(as.vector(a), distr = "gamma", method = "mle")))
         fit.gamma <- summary(fit.gamma)
-        temp <- pgamma(q = round(as.numeric(actual_data$P_value[i]),2), shape = fit.gamma$estimate[1], scale = 1/fit.gamma$estimate[2]) # Here I will round the p-value [CHECK]
+        temp <- pgamma(q = round(as.numeric(actual_data$P_value[i]),8), shape = fit.gamma$estimate[1], scale = 1/fit.gamma$estimate[2]) # Here I will round the p-value [CHECK]
       }else{
         temp = 1
       }
@@ -56,7 +56,7 @@ get_perm_pvalue <- function(actual_data = output_pos, n_perm = 100, method = "ga
       # temp <- sum(perm_pvalue[i,1:n_perm] <= actual_data$P_value[i])/50n_perm0
       # perm_p <- rbind(perm_p, temp)
       a <- t(perm_pvalue[i,1:n_perm])
-      temp <- 1-sum(a > round(as.numeric(actual_data$P_value[i]),2))/n_perm
+      temp <- 1-sum(a > round(as.numeric(actual_data$P_value[i]),8))/n_perm
       perm_p <- rbind(perm_p, temp)
     }
   }
