@@ -70,6 +70,8 @@ TWASEWAS_perm <- function(sig_gene_list = pos, ewas_species = ewas_species, twas
       bg = background_array[["macaque"]]
       # sig_gene_list_used <- sig_gene_list %>% dplyr::filter(CGid %in% bg_macaque$CGid)
       # other <- other %>% dplyr::filter(toupper(Gene.Symbol) %in% toupper(unique(bg$SYMBOL)))
+    }else if(anno$Organism[k] == "Macaca_mulatta"){
+      bg = background_array[["rhesus"]]
     }else{
       bg = background_array[["human"]]
     }

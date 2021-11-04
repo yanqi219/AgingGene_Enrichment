@@ -37,10 +37,10 @@ flog.info("Working directory is %s", working_dir)
 ###########################
 # Load input CpG list
 ###########################
-input_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/EWASmaxlifespan_topGene_local/topCG_Caesar/"
-input_list = "Eutherians_phylo_weightAdjusted_allEWAS_lifespan.csv"
+input_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/EWASmaxlifespan_topGene_local/topCG_Victor/"
+input_list = "Eutherians_allEWCD_lifespan.csv"
 topX_cpg = 500                 ####### How many CpGs do we want to keep as input list
-save_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_maxlifespan_Caesar/Nov2021/"
+save_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_causal_Victor/Nov2021/"
 save_file_name = input_list %>% gsub("Eutherians_", "", .) %>% gsub(".csv", "", .)
 
 if (!file.exists(paste(save_file_loc, save_file_name, sep = ""))){ # create folder if not existing
@@ -49,14 +49,14 @@ if (!file.exists(paste(save_file_loc, save_file_name, sep = ""))){ # create fold
 
 flog.info("Reading input CpG list: %s", input_list)
 
-{ # Caesar's input
-  input <- read.csv(file = paste(input_file_loc, input_list, sep = ""), header = T)
-  input <- input %>% # Generate a column indicate whether it's hyper or hypomethylation
-    dplyr::mutate(Meta = gsub("\\(.*", "", Meta)) %>%
-    # dplyr::rename(Meta = "X57.PGLS.EWAS.Log.maxAgeCaesar.OrderALL.TissueALL.N215") %>%
-    dplyr::mutate(Meta = as.numeric(Meta)) %>%
-    dplyr::mutate(Group = ifelse(Meta > 0, "pos", "neg"))
-}
+# { # Caesar's input
+#   input <- read.csv(file = paste(input_file_loc, input_list, sep = ""), header = T)
+#   input <- input %>% # Generate a column indicate whether it's hyper or hypomethylation
+#     dplyr::mutate(Meta = gsub("\\(.*", "", Meta)) %>%
+#     # dplyr::rename(Meta = "X57.PGLS.EWAS.Log.maxAgeCaesar.OrderALL.TissueALL.N215") %>%
+#     dplyr::mutate(Meta = as.numeric(Meta)) %>%
+#     dplyr::mutate(Group = ifelse(Meta > 0, "pos", "neg"))
+# }
 
 # {# Ake's input
 #   input <- read_csv(gzfile(paste(input_file_loc, input_list, sep = "")), col_names = TRUE)
@@ -66,6 +66,16 @@ flog.info("Reading input CpG list: %s", input_list)
 #     dplyr::rename(Meta = "Meta.Z") %>%
 #     dplyr::mutate(Meta = as.numeric(Meta)) %>%
 #     dplyr::mutate(Group = ifelse(Meta > 0, "pos", "neg"))
+# }
+
+# { # Victor's input
+#   input <- read.csv(file = paste(input_file_loc, input_list, sep = ""), header = T)
+#   input <- input %>% # Generate a column indicate whether it's hyper or hypomethylation
+#     dplyr::mutate(Meta = gsub("\\(.*", "", Meta)) %>%
+#     # dplyr::rename(Meta = "X57.PGLS.EWAS.Log.maxAgeCaesar.OrderALL.TissueALL.N215") %>%
+#     dplyr::mutate(Meta = as.numeric(Meta)) %>%
+#     # dplyr::mutate(Group = ifelse(Meta > 0, "pos", "neg")) %>%
+#     dplyr::mutate(Group = ifelse(Median_cd > 0, "pos", "neg"))
 # }
 
 flog.info("Number of hypermethylated CpGs: %s", sum(input$Group == "pos")) # Check the number of input probes
@@ -112,9 +122,9 @@ output_all <- rbind(output_pos, output_neg) %>%
 write.table(output_all,file = paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".csv", sep = ""), sep=',', row.names = F, quote=F)
 saveRDS(output_all, file = paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".rds", sep = ""))
 
-plot_enrichment(input_dir = paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".csv", sep = ""),
+try(plot_enrichment(input_dir = paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".csv", sep = ""),
                 figure_dir = paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".png", sep = ""),
-                p_threshold = 0.05, which_p = "gamma", min_hit = 5, figure_width = 2000, figure_height = 1200, figure_size = 8)
+                p_threshold = 0.05, which_p = "gamma", min_hit = 5, figure_width = 2000, figure_height = 1200, figure_size = 8))
 flog.info("Done TWASEWAS")
 ###################################################
 
@@ -138,9 +148,9 @@ write.table(output_all,file = paste(save_file_loc, save_file_name, "/Enriched_in
 saveRDS(output_all, file = paste(save_file_loc, save_file_name, "/Enriched_intervention_results_", save_file_name, ".rds", sep = ""))
 
 
-plot_enrichment(input_dir = paste(save_file_loc, save_file_name, "/Enriched_intervention_results_", save_file_name, ".csv", sep = ""),
+try(plot_enrichment(input_dir = paste(save_file_loc, save_file_name, "/Enriched_intervention_results_", save_file_name, ".csv", sep = ""),
                 figure_dir = paste(save_file_loc, save_file_name, "/Enriched_intervention_results_", save_file_name, ".png", sep = ""),
-                p_threshold = 0.05, which_p = "gamma", min_hit = 5, figure_width = 2000, figure_height = 1200, figure_size = 8)
+                p_threshold = 0.05, which_p = "gamma", min_hit = 5, figure_width = 2000, figure_height = 1200, figure_size = 8))
 flog.info("Done TWASEWAS")
 ###################################################
 

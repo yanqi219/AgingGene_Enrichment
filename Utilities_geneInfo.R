@@ -190,8 +190,13 @@
     reactome <- reactome %>% dplyr::mutate(reactome_name = gsub(",", " ", reactome_name))
     
     wikipathways <- data$pathway$wikipathways
-    wikipathways_id <- data.frame(unlist(lapply(wikipathways, function(x) paste(x$id, collapse = ";"))))
-    wikipathways_name <- data.frame(unlist(lapply(wikipathways, function(x) paste(x$name, collapse = ";"))))
+    if(class(wikipathways) == "list"){                 # Sometimes wikipathways can be dataframe instrad of list, like in WGCNA module navajowhite
+      wikipathways_id <- data.frame(unlist(lapply(wikipathways, function(x) paste(x$id, collapse = ";"))))
+      wikipathways_name <- data.frame(unlist(lapply(wikipathways, function(x) paste(x$name, collapse = ";"))))
+    }else if(class(wikipathways) == "data.frame"){
+      wikipathways_id <- data.frame(apply(wikipathways, 1, function(x) paste(x["id"], collapse = ";")))
+      wikipathways_name <- data.frame(apply(wikipathways, 1, function(x) paste(x["name"], collapse = ";")))
+    }
     wikipathways <- cbind(data$`_id`, wikipathways_id, wikipathways_name); colnames(wikipathways) <- c("_id", "wikipathways_id", "wikipathways_name")
     wikipathways <- wikipathways %>% dplyr::mutate(wikipathways_name = gsub(",", " ", wikipathways_name))
     

@@ -6,7 +6,7 @@ TWASEWAS <- function(sig_gene_list = NA, ewas_species = NA, twas_species = NA, t
   source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGene_Enrichment/func3_get_perm_pvalue.R")
   setwd(directory)
 
-  n_top = nrow(pos)
+  n_top = nrow(sig_gene_list)
   
   ##############
   # Check database and annotation file are consistent
@@ -82,6 +82,8 @@ TWASEWAS <- function(sig_gene_list = NA, ewas_species = NA, twas_species = NA, t
         bg = bg_AllSpecies_Amin[["mouse"]]
       }else if(twas.anno$Organism[k] == "Macaca_fascicularis"){
         bg = bg_AllSpecies_Amin[["macaque"]]
+      }else if(twas.anno$Organism[k] == "Macaca_mulatta"){
+        bg = bg_AllSpecies_Amin[["rhesus"]]
       }else{
         bg = bg_AllSpecies_Amin[["human"]]
       }

@@ -7,14 +7,14 @@ source("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/AgingGe
 top_num_of_probe = 1000
 ewas_species_name = "human"
 num_of_perm = 1000
-working_dir <- '/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_Intervention/'
+working_dir <- '/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/DB_TWAS/'
 setwd(working_dir)
 
 # Load original permutation data
 load(file = paste("Permutation/TWASEWAS_Permutation_", ewas_species_name, "_top", top_num_of_probe, ".RData", sep = ""))
 
 # Load TWAS annotation file
-twas.anno=read.csv('InterventionDataAnnotation.csv') # Change to different annotation files
+twas.anno=read.csv('TWASDataAnnotation.csv') # Change to different annotation files
 twas.anno <- twas.anno %>% dplyr::mutate(data = paste("Reference_Database/", Index, "_", Reference, ".csv.gz", sep = ""))
 twas.anno <- twas.anno %>% dplyr::filter(Organism != "Nothobranchius_furzeri") # For now remove killifish
 

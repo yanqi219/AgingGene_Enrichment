@@ -10,20 +10,20 @@ plot_enrichment <- function(input_dir, figure_dir, p_threshold = 0.05, which_p =
   library(readr)
   library(tidyr)
   library(ggplot2)
-  output_all <- readr::read_csv(input_dir)
+  output_plot <- readr::read_csv(input_dir)
   
   # Select gene sets to plot
   ## Restrict to those have raw p < threshold, permutation p < threshold, and hit > min_hit
   if(which_p == "gamma"){
     plot <-                # Plot those with permutation p value < 0.05 and hit > 5
-      output_all %>%
+      output_plot %>%
       dplyr::filter(P_value < p_threshold) %>%
       dplyr::filter(perm_p_gamma < p_threshold) %>%
       dplyr::filter(as.numeric(Hit) >= min_hit) %>%
       dplyr::mutate(new_p = perm_p_gamma)
   }else if(which_p == "nonpar"){
     plot <-                # Plot those with permutation p value < 0.05 and hit > 5
-      output_all %>%
+      output_plot %>%
       dplyr::filter(P_value < p_threshold) %>%
       dplyr::filter(perm_p_nonpar < p_threshold) %>%
       dplyr::filter(as.numeric(Hit) >= min_hit) %>%
