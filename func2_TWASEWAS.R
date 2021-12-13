@@ -147,6 +147,6 @@ TWASEWAS <- function(sig_gene_list = NA, ewas_species = NA, twas_species = NA, t
   # Reorder
   output.all <- output.all %>%
     dplyr::select(Ewas.Study, Top.N.CpG, Index, Reference, Hit, list_size, Actual_pct, Exp_pct, P_value, fdr, perm_p_gamma, perm_p_nonpar,
-                  Hit_genes, Hit_cpgs, Technology, Organism, Tissue, Cell, Type, Category, Trait, Note, PMID, Database)
+                  Hit_genes, Hit_cpgs, Technology, Organism, Tissue, Cell, Type, Category, Trait, Note, PMID, Database, Desc)
   return(output.all)
 }

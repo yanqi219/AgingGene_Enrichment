@@ -37,11 +37,11 @@ flog.info("Working directory is %s", working_dir)
 ###########################
 # Load input CpG list
 ###########################
-input_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/EWASmaxlifespan_topGene_local/topCG_Victor/"
-input_list = "Eutherians_allEWCD_lifespan.csv"
-topX_cpg = 500                 ####### How many CpGs do we want to keep as input list
-save_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_causal_Victor/Nov2021/"
-save_file_name = input_list %>% gsub("Eutherians_", "", .) %>% gsub(".csv", "", .)
+input_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/EWASmaxlifespan_topGene_local/topCG_Ake/"
+input_list = "Metal_pgm5_combine_all_species_tissue_stouffer_step2_1.HG38.txt.gz"
+topX_cpg = 1000                 ####### How many CpGs do we want to keep as input list
+save_file_loc = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/"
+save_file_name = input_list %>% gsub("Metal_pgm5_combine_all_species_", "", .) %>% gsub("_stouffer_step2_1.HG38.txt.gz", "", .)
 
 if (!file.exists(paste(save_file_loc, save_file_name, sep = ""))){ # create folder if not existing
   dir.create(paste(save_file_loc, save_file_name, sep = ""))
@@ -58,15 +58,15 @@ flog.info("Reading input CpG list: %s", input_list)
 #     dplyr::mutate(Group = ifelse(Meta > 0, "pos", "neg"))
 # }
 
-# {# Ake's input
-#   input <- read_csv(gzfile(paste(input_file_loc, input_list, sep = "")), col_names = TRUE)
-#   input <- input %>% # Generate a column indicate whether it's hyper or hypomethylation
-#     dplyr::rename(SYMBOL = "Gene") %>%
-#     dplyr::rename(CGid = "CpG") %>%
-#     dplyr::rename(Meta = "Meta.Z") %>%
-#     dplyr::mutate(Meta = as.numeric(Meta)) %>%
-#     dplyr::mutate(Group = ifelse(Meta > 0, "pos", "neg"))
-# }
+{# Ake's input
+  input <- read_tsv(gzfile(paste(input_file_loc, input_list, sep = "")), col_names = TRUE)
+  input <- input %>% # Generate a column indicate whether it's hyper or hypomethylation
+    # dplyr::rename(SYMBOL = "Gene") %>%
+    # dplyr::rename(CGid = "CpG") %>%
+    dplyr::rename(Meta = "Meta.Z") %>%
+    dplyr::mutate(Meta = as.numeric(Meta)) %>%
+    dplyr::mutate(Group = ifelse(Meta > 0, "pos", "neg"))
+}
 
 # { # Victor's input
 #   input <- read.csv(file = paste(input_file_loc, input_list, sep = ""), header = T)
@@ -124,7 +124,7 @@ saveRDS(output_all, file = paste(save_file_loc, save_file_name, "/Enriched_TWAS_
 
 try(plot_enrichment(input_dir = paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".csv", sep = ""),
                 figure_dir = paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".png", sep = ""),
-                p_threshold = 0.05, which_p = "gamma", min_hit = 5, figure_width = 2000, figure_height = 1200, figure_size = 8))
+                p_threshold = 5E-4, which_p = "gamma", min_hit = 5, figure_width = 2200, figure_height = 900, figure_size = 8))
 flog.info("Done TWASEWAS")
 ###################################################
 

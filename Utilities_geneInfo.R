@@ -262,64 +262,130 @@
     # gene_categories: A comma delimited list of gene categories to include in the result set. If this field is omitted, all gene categories will be included.
     # source_trust_levels: A comma delimited list of source trust levels to include in the result set. If this field is omitted, all trust levels will be included.
     
-    gene = paste(gene,collapse = ",")
-    my_query <- paste("https://dgidb.org/api/v2/interactions.json?", "genes=", gene, sep = "")
-    
-    # Apply filters
-    if(!all(is.na(interaction_sources))){
-      my_query <- paste(my_query, "&interaction_sources=", interaction_sources, sep = "") %>% gsub(" ", "", .)
+    if(length(gene) > 1000){ # Has a 1000 gene limitation
+      geneid_split <- split(gene, (0:length(gene) %/% 1000))
+      DGIdb_final <- {}
+      for (k in 1:length(geneid_split)) {
+        gene = paste(geneid_split[[k]],collapse = ",")
+        my_query <- paste("https://dgidb.org/api/v2/interactions.json?", "genes=", gene, sep = "")
+        
+        # Apply filters
+        if(!all(is.na(interaction_sources))){
+          my_query <- paste(my_query, "&interaction_sources=", interaction_sources, sep = "") %>% gsub(" ", "", .)
+        }
+        if(!all(is.na(interaction_types))){
+          my_query <- paste(my_query, "&interaction_types=", interaction_types, sep = "") %>% gsub(" ", "", .)
+        }
+        if(fda_approved_drug){
+          my_query <- paste(my_query, "&fda_approved_drug=true", sep = "") %>% gsub(" ", "", .)
+        }
+        if(immunotherapy){
+          my_query <- paste(my_query, "&immunotherapy=true", sep = "") %>% gsub(" ", "", .)
+        }
+        if(anti_neoplastic){
+          my_query <- paste(my_query, "&anti_neoplastic=true", sep = "") %>% gsub(" ", "", .)
+        }
+        if(clinically_actionable){
+          my_query <- paste(my_query, "&clinically_actionable=true", sep = "") %>% gsub(" ", "", .)
+        }
+        if(druggable_genome){
+          my_query <- paste(my_query, "&druggable_genome=true", sep = "") %>% gsub(" ", "", .)
+        }
+        if(drug_resistance){
+          my_query <- paste(my_query, "&drug_resistance=true", sep = "") %>% gsub(" ", "", .)
+        }
+        if(!all(is.na(gene_categories))){
+          my_query <- paste(my_query, "&gene_categories=", gene_categories, sep = "") %>% gsub(" ", "", .)
+        }
+        if(!all(is.na(source_trust_levels))){
+          my_query <- paste(my_query, "&source_trust_levels=", source_trust_levels, sep = "") %>% gsub(" ", "", .)
+        }
+        
+        # Use API
+        res <- httr::GET(my_query)
+        data = fromJSON(rawToChar(res$content))
+        
+        # Obtain gene category
+        geneCategories <- data$matchedTerms$geneCategories
+        DGIdb_geneCategories <- data.frame(unlist(lapply(geneCategories, function(x) paste(x$name, collapse = ";"))))
+        DGIdb_geneCategories_comb <- cbind(data$matchedTerms$geneName, DGIdb_geneCategories)
+        colnames(DGIdb_geneCategories_comb) <- c("SYMBOL", "DGIdb_geneCategories")
+        # Obtain drug interaction
+        interactions <- data$matchedTerms$interactions # from interaction: keep interaction type, drug name, drug ID, sources, pmids, and score
+        DGIdb_interactionTypes <- data.frame(unlist(lapply(interactions, function(x) paste(x$interactionTypes, collapse = ";"))))
+        DGIdb_drugName <- data.frame(unlist(lapply(interactions, function(x) paste(x$drugName, collapse = ";"))))
+        DGIdb_drugConceptId <- data.frame(unlist(lapply(interactions, function(x) paste(x$drugConceptId, collapse = ";"))))
+        DGIdb_sources <- data.frame(unlist(lapply(interactions, function(x) paste(x$sources, collapse = ";"))))
+        DGIdb_pmids <- data.frame(unlist(lapply(interactions, function(x) paste(x$pmids, collapse = ";"))))
+        DGIdb_score <- data.frame(unlist(lapply(interactions, function(x) paste(x$score, collapse = ";"))))
+        DGIdb_interaction_comb <- cbind(data$matchedTerms$geneName, DGIdb_interactionTypes, DGIdb_drugName, DGIdb_drugConceptId, DGIdb_sources,
+                                        DGIdb_pmids, DGIdb_score)
+        colnames(DGIdb_interaction_comb) <- c("SYMBOL", "DGIdb_interactionTypes", "DGIdb_drugName", "DGIdb_drugConceptId", "DGIdb_sources", 
+                                              "DGIdb_pmids", "DGIdb_score")
+        # Put together
+        DGIdb_temp <- DGIdb_geneCategories_comb %>% dplyr::left_join(DGIdb_interaction_comb, by = "SYMBOL")
+        DGIdb_final <- rbind(DGIdb_final, DGIdb_temp)
+      }
+    }else if(length(gene) <= 1000){
+      gene = paste(gene,collapse = ",")
+      my_query <- paste("https://dgidb.org/api/v2/interactions.json?", "genes=", gene, sep = "")
+      
+      # Apply filters
+      if(!all(is.na(interaction_sources))){
+        my_query <- paste(my_query, "&interaction_sources=", interaction_sources, sep = "") %>% gsub(" ", "", .)
+      }
+      if(!all(is.na(interaction_types))){
+        my_query <- paste(my_query, "&interaction_types=", interaction_types, sep = "") %>% gsub(" ", "", .)
+      }
+      if(fda_approved_drug){
+        my_query <- paste(my_query, "&fda_approved_drug=true", sep = "") %>% gsub(" ", "", .)
+      }
+      if(immunotherapy){
+        my_query <- paste(my_query, "&immunotherapy=true", sep = "") %>% gsub(" ", "", .)
+      }
+      if(anti_neoplastic){
+        my_query <- paste(my_query, "&anti_neoplastic=true", sep = "") %>% gsub(" ", "", .)
+      }
+      if(clinically_actionable){
+        my_query <- paste(my_query, "&clinically_actionable=true", sep = "") %>% gsub(" ", "", .)
+      }
+      if(druggable_genome){
+        my_query <- paste(my_query, "&druggable_genome=true", sep = "") %>% gsub(" ", "", .)
+      }
+      if(drug_resistance){
+        my_query <- paste(my_query, "&drug_resistance=true", sep = "") %>% gsub(" ", "", .)
+      }
+      if(!all(is.na(gene_categories))){
+        my_query <- paste(my_query, "&gene_categories=", gene_categories, sep = "") %>% gsub(" ", "", .)
+      }
+      if(!all(is.na(source_trust_levels))){
+        my_query <- paste(my_query, "&source_trust_levels=", source_trust_levels, sep = "") %>% gsub(" ", "", .)
+      }
+      
+      # Use API
+      res <- httr::GET(my_query)
+      data = fromJSON(rawToChar(res$content))
+      
+      # Obtain gene category
+      geneCategories <- data$matchedTerms$geneCategories
+      DGIdb_geneCategories <- data.frame(unlist(lapply(geneCategories, function(x) paste(x$name, collapse = ";"))))
+      DGIdb_geneCategories_comb <- cbind(data$matchedTerms$geneName, DGIdb_geneCategories)
+      colnames(DGIdb_geneCategories_comb) <- c("SYMBOL", "DGIdb_geneCategories")
+      # Obtain drug interaction
+      interactions <- data$matchedTerms$interactions # from interaction: keep interaction type, drug name, drug ID, sources, pmids, and score
+      DGIdb_interactionTypes <- data.frame(unlist(lapply(interactions, function(x) paste(x$interactionTypes, collapse = ";"))))
+      DGIdb_drugName <- data.frame(unlist(lapply(interactions, function(x) paste(x$drugName, collapse = ";"))))
+      DGIdb_drugConceptId <- data.frame(unlist(lapply(interactions, function(x) paste(x$drugConceptId, collapse = ";"))))
+      DGIdb_sources <- data.frame(unlist(lapply(interactions, function(x) paste(x$sources, collapse = ";"))))
+      DGIdb_pmids <- data.frame(unlist(lapply(interactions, function(x) paste(x$pmids, collapse = ";"))))
+      DGIdb_score <- data.frame(unlist(lapply(interactions, function(x) paste(x$score, collapse = ";"))))
+      DGIdb_interaction_comb <- cbind(data$matchedTerms$geneName, DGIdb_interactionTypes, DGIdb_drugName, DGIdb_drugConceptId, DGIdb_sources,
+                                      DGIdb_pmids, DGIdb_score)
+      colnames(DGIdb_interaction_comb) <- c("SYMBOL", "DGIdb_interactionTypes", "DGIdb_drugName", "DGIdb_drugConceptId", "DGIdb_sources", 
+                                            "DGIdb_pmids", "DGIdb_score")
+      # Put together
+      DGIdb_final <- DGIdb_geneCategories_comb %>% dplyr::left_join(DGIdb_interaction_comb, by = "SYMBOL")
     }
-    if(!all(is.na(interaction_types))){
-      my_query <- paste(my_query, "&interaction_types=", interaction_types, sep = "") %>% gsub(" ", "", .)
-    }
-    if(fda_approved_drug){
-      my_query <- paste(my_query, "&fda_approved_drug=true", sep = "") %>% gsub(" ", "", .)
-    }
-    if(immunotherapy){
-      my_query <- paste(my_query, "&immunotherapy=true", sep = "") %>% gsub(" ", "", .)
-    }
-    if(anti_neoplastic){
-      my_query <- paste(my_query, "&anti_neoplastic=true", sep = "") %>% gsub(" ", "", .)
-    }
-    if(clinically_actionable){
-      my_query <- paste(my_query, "&clinically_actionable=true", sep = "") %>% gsub(" ", "", .)
-    }
-    if(druggable_genome){
-      my_query <- paste(my_query, "&druggable_genome=true", sep = "") %>% gsub(" ", "", .)
-    }
-    if(drug_resistance){
-      my_query <- paste(my_query, "&drug_resistance=true", sep = "") %>% gsub(" ", "", .)
-    }
-    if(!all(is.na(gene_categories))){
-      my_query <- paste(my_query, "&gene_categories=", gene_categories, sep = "") %>% gsub(" ", "", .)
-    }
-    if(!all(is.na(source_trust_levels))){
-      my_query <- paste(my_query, "&source_trust_levels=", source_trust_levels, sep = "") %>% gsub(" ", "", .)
-    }
-    
-    # Use API
-    res <- httr::GET(my_query)
-    data = fromJSON(rawToChar(res$content))
-    
-    # Obtain gene category
-    geneCategories <- data$matchedTerms$geneCategories
-    DGIdb_geneCategories <- data.frame(unlist(lapply(geneCategories, function(x) paste(x$name, collapse = ";"))))
-    DGIdb_geneCategories_comb <- cbind(data$matchedTerms$geneName, DGIdb_geneCategories)
-    colnames(DGIdb_geneCategories_comb) <- c("SYMBOL", "DGIdb_geneCategories")
-    # Obtain drug interaction
-    interactions <- data$matchedTerms$interactions # from interaction: keep interaction type, drug name, drug ID, sources, pmids, and score
-    DGIdb_interactionTypes <- data.frame(unlist(lapply(interactions, function(x) paste(x$interactionTypes, collapse = ";"))))
-    DGIdb_drugName <- data.frame(unlist(lapply(interactions, function(x) paste(x$drugName, collapse = ";"))))
-    DGIdb_drugConceptId <- data.frame(unlist(lapply(interactions, function(x) paste(x$drugConceptId, collapse = ";"))))
-    DGIdb_sources <- data.frame(unlist(lapply(interactions, function(x) paste(x$sources, collapse = ";"))))
-    DGIdb_pmids <- data.frame(unlist(lapply(interactions, function(x) paste(x$pmids, collapse = ";"))))
-    DGIdb_score <- data.frame(unlist(lapply(interactions, function(x) paste(x$score, collapse = ";"))))
-    DGIdb_interaction_comb <- cbind(data$matchedTerms$geneName, DGIdb_interactionTypes, DGIdb_drugName, DGIdb_drugConceptId, DGIdb_sources,
-                                    DGIdb_pmids, DGIdb_score)
-    colnames(DGIdb_interaction_comb) <- c("SYMBOL", "DGIdb_interactionTypes", "DGIdb_drugName", "DGIdb_drugConceptId", "DGIdb_sources", 
-                                          "DGIdb_pmids", "DGIdb_score")
-    # Put together
-    DGIdb_final <- DGIdb_geneCategories_comb %>% dplyr::left_join(DGIdb_interaction_comb, by = "SYMBOL")
     
     return(DGIdb_final)
   }
