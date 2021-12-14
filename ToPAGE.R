@@ -125,6 +125,7 @@ saveRDS(output_all, file = paste(save_file_loc, save_file_name, "/Enriched_TWAS_
 try(plot_enrichment(input_dir = paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".csv", sep = ""),
                 figure_dir = paste(save_file_loc, save_file_name, "/Enriched_TWAS_results_", save_file_name, ".png", sep = ""),
                 p_threshold = 5E-4, which_p = "gamma", min_hit = 5, figure_width = 2200, figure_height = 900, figure_size = 8))
+
 flog.info("Done TWASEWAS")
 ###################################################
 
@@ -258,3 +259,14 @@ saveRDS(Final_gene_report, file = paste(save_file_loc, save_file_name, "/FinalRe
 
 end_time <- Sys.time()
 end_time - start_time
+
+
+############### Draw Heatmap ############### 
+try(plot_enrichment_heatmap())
+try(plot_enrichment_heatmap(figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/Heatmap_noGEO.png",
+                            exclude = c("Tabula Muris Senis", "GEO")))
+try(plot_enrichment_heatmap(figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/Heatmap_GEO.png",
+                            exclude = c("Tabula Muris Senis", "GTEx", "Pubmed", "GenAge")))
+############################################ 
+
+

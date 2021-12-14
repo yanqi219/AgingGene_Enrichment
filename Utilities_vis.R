@@ -34,7 +34,7 @@ plot_enrichment <- function(input_dir, figure_dir, p_threshold = 0.05, which_p =
   
   if(!is.na(exclude)){
     plot <- plot %>%
-      dplyr::filter(Database != exclude)
+      dplyr::filter(!(Database %in% exclude))
   }
   
   # Reformat the data, and select only top_n
@@ -64,17 +64,11 @@ plot_enrichment <- function(input_dir, figure_dir, p_threshold = 0.05, which_p =
   dev.off()
 }
 
-plot_enrichment_heatmap <- function(input_dir, figure_dir, p_threshold = 0.05, which_p = "gamma", min_hit = 5, 
-                                    figure_width = 1600, figure_height = 800, figure_size = 6, top_n = 10, 
-                                    exclude = c("Tabula Muris Senis")){
-  library(readr)
-  library(tidyr)
-  library(ggplot2)
-  output_plot <- readr::read_csv(input_dir)
-  
+topN_selector <- function(input_data, p_threshold = 0.05, which_p = "gamma", min_hit = 5, top_n = 10, 
+                          exclude = c("Tabula Muris Senis")){
   if(!is.na(exclude)){
-    plot <- output_plot %>%
-      dplyr::filter(Database != exclude)
+    plot <- input_data %>%
+      dplyr::filter(!(Database %in% exclude))
   }
   
   # Select gene sets to plot
@@ -87,8 +81,8 @@ plot_enrichment_heatmap <- function(input_dir, figure_dir, p_threshold = 0.05, w
       dplyr::distinct(Index) %>%
       dplyr::slice_head(n = top_n) %>%
       dplyr::pull(Index)
-    plot <- plot %>%
-      dplyr::filter(Index %in% select_top)
+    # plot <- plot %>%
+    #   dplyr::filter(Index %in% select_top)
   }else if(which_p == "nonpar"){
     select_top <- plot %>%
       dplyr::filter(perm_p_nonpar < p_threshold) %>%
@@ -97,68 +91,104 @@ plot_enrichment_heatmap <- function(input_dir, figure_dir, p_threshold = 0.05, w
       dplyr::distinct(Index) %>%
       dplyr::slice_head(n = top_n) %>%
       dplyr::pull(Index)
-    plot <- plot %>%
-      dplyr::filter(Index %in% select_top)
+    # plot <- plot %>%
+    #   dplyr::filter(Index %in% select_top)
   }
+  return(select_top)
+}
 
-  out.all.sig <- plot %>%
-    dplyr::select(Index, Reference, Organism, Tissue, Cell, Type, Note, PMID, Database, Direction, Desc, P_value, Hit, list_size) %>%
+
+plot_enrichment_heatmap <- function(input_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021", 
+                                    figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/Heatmap.png",
+                                    p_threshold = 0.05, which_p = "gamma", min_hit = 5, 
+                                    figure_width = 1800, figure_height = 1600, top_n = 10, 
+                                    exclude = c("Tabula Muris Senis")){
+  library(readr)
+  library(ggplot2)
+  library(ggpubr)
+  library(WGCNA)
+  library(gridExtra)
+  library(ComplexHeatmap)
+  library(tidyverse)
+  
+  ###########################
+  # Reformat
+  ###########################
+  input_folder=input_dir
+  TISSUE=c('brain','cortex','blood','liver','muscle','skin')
+  
+  plot_index <- {}
+  out.all2.sig <- {}
+  for (i in 1:length(TISSUE)) {
+    temp_file <- paste0(input_folder, "/", TISSUE[i], "/", "Enriched_TWAS_results_", TISSUE[i], ".rds")
+    temp <- readRDS(temp_file)
+    temp$P_value <- as.numeric(temp$P_value)
+    temp_plot_index <- topN_selector(input_data = temp, p_threshold = p_threshold, which_p = which_p, min_hit = min_hit, top_n = top_n, 
+                              exclude = exclude)
+    plot_index <- c(plot_index, temp_plot_index)
+    # long format
+    temp$Tissue_ewas <- TISSUE[i]
+    out.all2.sig <- rbind(out.all2.sig, temp)
+  }
+  
+  # Need to assign an order to records
+  plot_order <- data.frame("Index" = unique(plot_index), "order" = c(1:length(unique(plot_index))))
+  
+  out.all.sig <- out.all2.sig %>%
+    dplyr::select(Index, Reference, Organism, Tissue, Cell, Type, Note, PMID, Database, Direction, Desc, Tissue_ewas, P_value, Hit, list_size) %>%
     dplyr::mutate(overlap = paste(Hit, list_size, sep = "/")) %>%
     dplyr::select(-c(Hit, list_size)) %>%
     dplyr::arrange(Index)
   out.all.sig <- reshape2::dcast(reshape2::melt(out.all.sig, id.vars=c("Index", "Reference", "Organism", "Tissue", "Cell", "Type",
-                                                                       "Note", "PMID", "Database", "Direction", "Desc")), Index+Reference+Organism+Tissue+Cell+Type+Note+PMID+Database+Desc~variable+Direction)
+                                                                       "Note", "PMID", "Database", "Direction", "Desc", "Tissue_ewas")), Index+Reference+Organism+Tissue+Cell+Type+Note+PMID+Database+Direction+Desc~variable+Tissue_ewas)
   
   
+  TISSUE.short=c('Brain','Cortex','Blood','Liver','Muscle','Skin')
+  
+  
+  vars=paste0('P_value_',TISSUE)
+  vars.pos=paste0(vars,'.pos')
+  vars.neg=paste0(vars,'.neg')
+  keep.vars    =c("Index", "Reference", "Organism", "Tissue", "Cell", "Type", "Note", "PMID", "Database", "Desc", vars)
+  keep.vars.pos=c("Index", "Reference", "Organism", "Tissue", "Cell", "Type", "Note", "PMID", "Database", "Desc", vars.pos)
+  out.all.sig.pos=subset(out.all.sig,Direction=='Hyper',select=keep.vars)
+  names(out.all.sig.pos)=keep.vars.pos
+  #
+  keep.vars=c('Index',vars)
+  keep.vars.neg=c('Index',vars.neg)
+  out.all.sig.neg=subset(out.all.sig,Direction=='Hypo',select=c('Index',vars))
+  names(out.all.sig.neg)=keep.vars.neg
+  #
+  out.all.sig=merge(by='Index',out.all.sig.pos,out.all.sig.neg)
+  
+  #
+  #very important for the variable out.sig$Order in order to align different df
+  #
   out.all.sig=out.all.sig[order(out.all.sig$Index),]
-  out.sig=data.frame(Order=1:nrow(out.all.sig),out.all.sig)
-  mat.p=subset(out.sig,select=c("P_value_Hyper", "P_value_Hypo"))
-  mat.p <- data.frame(apply(mat.p, 2, as.numeric))
+  # out.sig=data.frame(Order=1:nrow(out.all.sig),out.all.sig)
+  
+  mat.p <- out.all.sig %>%
+    dplyr::select(Index,vars.pos,vars.neg) %>%
+    dplyr::filter(Index %in% plot_index) %>%
+    dplyr::left_join(plot_order, by = "Index") %>%
+    dplyr::arrange(order)
+  
+  mat.p <- mat.p %>% dplyr::select(-order)
+  
+  mat.p <- data.frame(apply(mat.p, 2, as.numeric))  %>%
+    column_to_rownames(var = "Index")
   #alternatively, you can keep the variable Order in mat.p, map.log10P then 
   #use mat.p[,-c(1)] in the complexheatmap
-  rownames(mat.p)=out.sig$Order
+  # rownames(mat.p)=out.sig$Order
   mat.log10P=-log10(mat.p)
-
-  # anno.state=subset(out.sig,select=c(Order,Index,Category,trait))
-  anno.state=out.sig
-  anno.state=anno.state[order(anno.state$Order),]#make sure the order of anno.state is the same with mat.p
-  #
-  #(2) color for category
-  #
-  library(RColorBrewer)
-  qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
-  qual_col_pals$category=rownames(qual_col_pals)
-  #remove light colors
-  qual_col_pals=qual_col_pals[!qual_col_pals$category %in%c('Pastel1','Pastel2'),]
-  #
-  #blood:#F0027F
-  #
-  col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
-  color.df = data.frame(tissueColor=unique(col_vector))
-  
-  #
-  anno.cat=subset(anno.state,!duplicated(Organism))
-  anno.cat$row.color=color.df$tissueColor[1:nrow(anno.cat)]
-  # anno.cat$row.color[anno.cat$Category=='DNAm biomarkers']='#6A3D9A'
-  anno.state=merge(by='Organism',subset(anno.cat,select=c(Organism,row.color)),anno.state)
-  anno.state=anno.state[order(anno.state$Order),]
-  #
-  anno.state.color=as.character(anno.state$row.color)
-  names(anno.state.color)=as.character(anno.state$Reference)
-  anno.state.color.list=list(state = anno.state.color)
-  #
-  anno.category=anno.state
-  anno.category.color=as.character(anno.category$row.color)
-  names(anno.category.color)=as.character(anno.category$Organism)
-  anno.category.color.list=list(Category = anno.category.color)
-  #
+  rownames(mat.log10P)=rownames(mat.p)
   #(3) text in the heatmap
   #
-  F1<-function(x,sig.cutoff0=0.05){
+  F1<-function(x,sig.cutoff0=5E-4){
     x=ifelse(x<sig.cutoff0,format(as.numeric(x),scientic=T,digit=1),'')
     
   }
-  mat.text=apply(mat.p,2,F1,sig.cutoff0=0.05)
+  mat.text=apply(mat.p,2,F1,sig.cutoff0=0.01)
   rownames(mat.text)=rownames(mat.p)
   
   #
@@ -174,29 +204,7 @@ plot_enrichment_heatmap <- function(input_dir, figure_dir, p_threshold = 0.05, w
                                                         labels_gp = gpar(col = c("black","black"),
                                                                          fontsize = 26,fontface='bold')
                                                         ,height=unit(20,'mm')))
-  #
-  right_annotation= rowAnnotation(Category =anno.category$Organism, 
-                                  # col=anno.category.color.list,
-                                  annotation_label='twas category',
-                                  show_annotation_name = FALSE,
-                                  annotation_legend_param = list(title_gp = gpar(fontsize = 16,fontface='bold'),
-                                                                 labels_gp = gpar(fontsize = 16)),show_legend=FALSE)
-  #
-  #(5) bar plot
-  #
-  anno.state=merge(by='Index',anno.state,numsig.df,all.x=T)
-  anno.state=anno.state[order(anno.state$Order),]# note the order
-  left_annotation= rowAnnotation(
-    N.significance = anno_barplot(anno.state$index.freq,
-                                  gp=gpar(border ='black',
-                                          fill=as.character(anno.state.color))))
   
-  #
-  column_split = rep(1:2, each = length(TISSUE))# one for hypermethylation and the other one for hypo
-  #
-  row_split = anno.state$Category
-  #=======================================================
-  #png(out.summary1.png,width=20,heigh=12,unit='in',res=300)
   par(mar=c(12,30,3,3))
   col_fun = circlize::colorRamp2(c(0, max(mat.log10P)), c("white", "#FF0000"))
   col_fun(1.4)
@@ -206,32 +214,35 @@ plot_enrichment_heatmap <- function(input_dir, figure_dir, p_threshold = 0.05, w
   #
   colnames(mat.log10P)=c(TISSUE.short,TISSUE.short)
   #
-  match.id=match(rownames(mat.p),out.sig$Order)
-  our.sig=out.sig[match.id,]
+  # match.id=match(rownames(mat.p),out.all.sig$Index)
+  out.sig <- out.all.sig %>%
+    dplyr::filter(Index %in% rownames(mat.log10P)) %>%
+    dplyr::left_join(plot_order, by = "Index") %>%
+    dplyr::arrange(order)
   p1.mat<-Heatmap(as.matrix(mat.log10P), 
                   name = "-log10P", 
                   #title
-                  column_title = "EWAS-twas enrichment",
+                  column_title = "EWAS-TWAS enrichment",
                   column_title_gp = gpar(fontsize = 30,fontface='bold'),
                   column_names_rot = 0,
                   column_names_centered = TRUE,
                   row_title = NULL,
                   #annotation
-                  left_annotation = left_annotation,
+                  # left_annotation = left_annotation,
                   top_annotation=top_annotation,
-                  right_annotation=right_annotation,
-                  column_split=column_split,
-                  row_split=row_split,
+                  # right_annotation=right_annotation,
+                  column_split=rep(1:2, each = length(TISSUE)), # one for hypermethylation and the other one for hypo,
+                  # row_split=row_split,
                   row_gap = unit(.00, "mm"),
                   column_gap = unit(.00, "mm"),
                   #no cluster
                   cluster_columns=F,cluster_rows=F,
                   #label
                   row_names_side = c("left"),
-                  row_labels =paste0(out.sig$Index,'.',out.sig$Reference),
+                  row_labels =paste0(out.sig$Index,'.',out.sig$Desc),
                   row_names_max_width = max_text_width(
-                    paste0(out.sig$Index,'.',out.sig$Reference), 
-                    gp = gpar(fontsize = 20)),
+                    paste0(out.sig$Index,'.',out.sig$Desc), 
+                    gp = gpar(fontsize = 25)),
                   
                   #col
                   col=col_fun,
@@ -239,15 +250,16 @@ plot_enrichment_heatmap <- function(input_dir, figure_dir, p_threshold = 0.05, w
                   layer_fun = mylayer_fun
                   ,
                   heatmap_legend_param = list(
-                    title_gp = gpar(fontsize = 20,fontface='bold'),
-                    labels_gp = gpar(fontsize = 20))
+                    title_gp = gpar(fontsize = 25,fontface='bold'),
+                    labels_gp = gpar(fontsize = 25))
                   ,
-                  column_names_gp = gpar(fontsize = 18),
-                  row_names_gp = gpar(fontsize = 20)
+                  column_names_gp = gpar(fontsize = 20),
+                  row_names_gp = gpar(fontsize = 25)
                   
                   
   )
+  #
+  png(figure_dir, width = figure_width, height = figure_height)
+  print(p1.mat)
+  dev.off()
 }
-
-
-
