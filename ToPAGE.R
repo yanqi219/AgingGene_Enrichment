@@ -267,6 +267,13 @@ try(plot_enrichment_heatmap(figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/Horva
                             exclude = c("Tabula Muris Senis", "GEO")))
 try(plot_enrichment_heatmap(figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/Heatmap_GEO.png",
                             exclude = c("Tabula Muris Senis", "GTEx", "Pubmed", "GenAge")))
+
+try(plot_enrichment_heatmap(figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/Heatmap_1.png",
+                            tissue_include = c('brain','cortex','blood'),
+                            tissue_name = c('Brain','Cortex','Blood'), figure_height = 1200))
+try(plot_enrichment_heatmap(figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/Heatmap_2.png",
+                            tissue_include = c('liver','muscle','skin'),
+                            tissue_name = c('Liver','Muscle','Skin'), figure_height = 1200))
 ############################################ 
 
 

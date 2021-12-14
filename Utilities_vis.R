@@ -101,8 +101,9 @@ topN_selector <- function(input_data, p_threshold = 0.05, which_p = "gamma", min
 plot_enrichment_heatmap <- function(input_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021", 
                                     figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/Heatmap.png",
                                     p_threshold = 0.05, which_p = "gamma", min_hit = 5, 
-                                    figure_width = 1800, figure_height = 1600, top_n = 10, 
-                                    exclude = c("Tabula Muris Senis")){
+                                    figure_width = 2100, figure_height = 1600, top_n = 10, 
+                                    exclude = c("Tabula Muris Senis"), tissue_include = c("tissue",'blood','skin','brain','cortex','liver','muscle'),
+                                    tissue_name = c('Tissue','Blood','Skin','Brain','Cortex','Liver','Muscle')){
   library(readr)
   library(ggplot2)
   library(ggpubr)
@@ -115,7 +116,7 @@ plot_enrichment_heatmap <- function(input_dir = "/Users/qiyan/Dropbox/Horvath_La
   # Reformat
   ###########################
   input_folder=input_dir
-  TISSUE=c('brain','cortex','blood','liver','muscle','skin')
+  TISSUE=tissue_include
   
   plot_index <- {}
   out.all2.sig <- {}
@@ -143,7 +144,7 @@ plot_enrichment_heatmap <- function(input_dir = "/Users/qiyan/Dropbox/Horvath_La
                                                                        "Note", "PMID", "Database", "Direction", "Desc", "Tissue_ewas")), Index+Reference+Organism+Tissue+Cell+Type+Note+PMID+Database+Direction+Desc~variable+Tissue_ewas)
   
   
-  TISSUE.short=c('Brain','Cortex','Blood','Liver','Muscle','Skin')
+  TISSUE.short=tissue_name
   
   
   vars=paste0('P_value_',TISSUE)
