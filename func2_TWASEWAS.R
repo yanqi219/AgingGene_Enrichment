@@ -92,6 +92,8 @@ TWASEWAS <- function(sig_gene_list = NA, ewas_species = NA, twas_species = NA, t
         bg <- bg %>% dplyr::filter(CGid %in% bg_AllSpecies_Amin[["mouse"]]$CGid)
       }else if(ewas_species == "rat"){
         bg <- bg %>% dplyr::filter(CGid %in% bg_AllSpecies_Amin[["rat"]]$CGid)
+      }else if(ewas_species == "eutherian"){
+        bg <- bg %>% dplyr::filter(CGid %in% bg_AllSpecies_Amin[["eutherian"]]$CGid)
       }
       
       sig_gene_list_used <- sig_gene_list %>% dplyr::filter(CGid %in% bg$CGid)

@@ -261,19 +261,29 @@ end_time <- Sys.time()
 end_time - start_time
 
 
-############### Draw Heatmap ############### 
-try(plot_enrichment_heatmap())
-try(plot_enrichment_heatmap(figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/Heatmap_noGEO.png",
-                            exclude = c("Tabula Muris Senis", "GEO")))
-try(plot_enrichment_heatmap(figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/Heatmap_GEO.png",
-                            exclude = c("Tabula Muris Senis", "GTEx", "Pubmed", "GenAge")))
-
-try(plot_enrichment_heatmap(figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/Heatmap_1.png",
-                            tissue_include = c('brain','cortex','blood'),
-                            tissue_name = c('Brain','Cortex','Blood'), figure_height = 1200))
-try(plot_enrichment_heatmap(figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/Heatmap_2.png",
-                            tissue_include = c('liver','muscle','skin'),
-                            tissue_name = c('Liver','Muscle','Skin'), figure_height = 1200))
+############### Draw Heatmap ###############
+try(plot_enrichment_heatmap(input_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Dec2021_final",
+                            figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Dec2021_final/TWASEWASHeatmap_full.png",
+                            top_n = 10))
+try(plot_enrichment_heatmap(input_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Dec2021_final",
+                            figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Dec2021_final/TWASEWASHeatmap_selected.png",
+                            top_n = 10,
+                            cutter = c(241, 247, 210, 245, 363, 733, 549, 581, 385, 436, 424, 734, 609, 611, 409, 482, 434)))
+try(plot_enrichment_heatmap(input_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Dec2021_final",
+                            figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Dec2021_final/TWASEWASHeatmap_top5.png",
+                            top_n = 5))
+# try(plot_enrichment_heatmap(input_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Dec2021_final",
+#   figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Dec2021_final/Heatmap_noGEO.png",
+#   exclude = c("Tabula Muris Senis", "GEO")))
+# try(plot_enrichment_heatmap(figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/Heatmap_GEO.png",
+#                             exclude = c("Tabula Muris Senis", "GTEx", "Pubmed", "GenAge")))
+# 
+# try(plot_enrichment_heatmap(figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/Heatmap_1.png",
+#                             tissue_include = c('brain','cortex','blood'),
+#                             tissue_name = c('Brain','Cortex','Blood'), figure_height = 1200))
+# try(plot_enrichment_heatmap(figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/Heatmap_2.png",
+#                             tissue_include = c('liver','muscle','skin'),
+#                             tissue_name = c('Liver','Muscle','Skin'), figure_height = 1200))
 ############################################ 
 
 
