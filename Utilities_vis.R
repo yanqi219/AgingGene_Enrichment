@@ -101,9 +101,10 @@ topN_selector <- function(input_data, p_threshold = 0.05, which_p = "gamma", min
 plot_enrichment_heatmap <- function(input_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021", 
                                     figure_dir = "/Users/qiyan/Dropbox/Horvath_Lab/HorvathLabCoreMembers/Qi/ToPAGE/Enrichment_Analysis_Results/EWAS_age_Ake/Nov2021/Heatmap.png",
                                     p_threshold = 0.05, which_p = "gamma", min_hit = 5, 
-                                    figure_width = 2100, figure_height = 1600, top_n = 10, 
+                                    figure_width = 2800, figure_height = 1700, top_n = 10, 
                                     exclude = c("Tabula Muris Senis"), tissue_include = c("tissue",'blood','skin','brain','cortex','liver','muscle'),
-                                    tissue_name = c('Tissue','Blood','Skin','Brain','Cortex','Liver','Muscle')){
+                                    tissue_name = c('All','Blood','Skin','Brain','Cortex','Liver','Muscle'),
+                                    cutter = NA){
   library(readr)
   library(ggplot2)
   library(ggpubr)
@@ -138,26 +139,27 @@ plot_enrichment_heatmap <- function(input_dir = "/Users/qiyan/Dropbox/Horvath_La
   out.all.sig <- out.all2.sig %>%
     dplyr::select(Index, Reference, Organism, Tissue, Cell, Type, Note, PMID, Database, Direction, Desc, Tissue_ewas, P_value, Hit, list_size) %>%
     dplyr::mutate(overlap = paste(Hit, list_size, sep = "/")) %>%
-    dplyr::select(-c(Hit, list_size)) %>%
+    # dplyr::select(-c(list_size)) %>%
     dplyr::arrange(Index)
-  out.all.sig <- reshape2::dcast(reshape2::melt(out.all.sig, id.vars=c("Index", "Reference", "Organism", "Tissue", "Cell", "Type",
-                                                                       "Note", "PMID", "Database", "Direction", "Desc", "Tissue_ewas")), Index+Reference+Organism+Tissue+Cell+Type+Note+PMID+Database+Direction+Desc~variable+Tissue_ewas)
-  
+  out.all.sig <- reshape2::dcast(reshape2::melt(out.all.sig, id.vars=c("Index", "Reference", "Organism", "Tissue", "Cell", "Type", "list_size",
+                                                                       "Note", "PMID", "Database", "Direction", "Desc", "Tissue_ewas")), Index+Reference+Organism+Tissue+Cell+Type+list_size+Note+PMID+Database+Direction+Desc~variable+Tissue_ewas)
   
   TISSUE.short=tissue_name
   
-  
   vars=paste0('P_value_',TISSUE)
+  vars_hit=paste0('Hit_',TISSUE)
   vars.pos=paste0(vars,'.pos')
   vars.neg=paste0(vars,'.neg')
-  keep.vars    =c("Index", "Reference", "Organism", "Tissue", "Cell", "Type", "Note", "PMID", "Database", "Desc", vars)
-  keep.vars.pos=c("Index", "Reference", "Organism", "Tissue", "Cell", "Type", "Note", "PMID", "Database", "Desc", vars.pos)
+  vars_hit.pos=paste0(vars_hit,'.pos')
+  vars_hit.neg=paste0(vars_hit,'.neg')
+  keep.vars    =c("Index", "Reference", "Organism", "Tissue", "Cell", "Type", "list_size", "Note", "PMID", "Database", "Desc", vars, vars_hit)
+  keep.vars.pos=c("Index", "Reference", "Organism", "Tissue", "Cell", "Type", "list_size", "Note", "PMID", "Database", "Desc", vars.pos, vars_hit.pos)
   out.all.sig.pos=subset(out.all.sig,Direction=='Hyper',select=keep.vars)
   names(out.all.sig.pos)=keep.vars.pos
   #
-  keep.vars=c('Index',vars)
-  keep.vars.neg=c('Index',vars.neg)
-  out.all.sig.neg=subset(out.all.sig,Direction=='Hypo',select=c('Index',vars))
+  keep.vars=c('Index',vars,vars_hit)
+  keep.vars.neg=c('Index',vars.neg,vars_hit.neg)
+  out.all.sig.neg=subset(out.all.sig,Direction=='Hypo',select=c('Index',vars,vars_hit))
   names(out.all.sig.neg)=keep.vars.neg
   #
   out.all.sig=merge(by='Index',out.all.sig.pos,out.all.sig.neg)
@@ -167,16 +169,35 @@ plot_enrichment_heatmap <- function(input_dir = "/Users/qiyan/Dropbox/Horvath_La
   #
   out.all.sig=out.all.sig[order(out.all.sig$Index),]
   # out.sig=data.frame(Order=1:nrow(out.all.sig),out.all.sig)
-  
+
   mat.p <- out.all.sig %>%
     dplyr::select(Index,vars.pos,vars.neg) %>%
     dplyr::filter(Index %in% plot_index) %>%
     dplyr::left_join(plot_order, by = "Index") %>%
     dplyr::arrange(order)
   
+  mat.hit <- out.all.sig %>%                              # This is for number of hits
+    dplyr::select(Index,vars_hit.pos,vars_hit.neg) %>%
+    dplyr::filter(Index %in% plot_index) %>%
+    dplyr::left_join(plot_order, by = "Index") %>%
+    dplyr::arrange(order)
+  
+  {
+    # May want to cut some records based on the final plot, introduce cutter
+    if(!is.na(cutter)){
+      mat.p <- mat.p %>%
+        dplyr::filter(!(Index %in% cutter))
+      mat.hit <- mat.hit %>%
+        dplyr::filter(!(Index %in% cutter))
+    }
+  }
+  
   mat.p <- mat.p %>% dplyr::select(-order)
+  mat.hit <- mat.hit %>% dplyr::select(-order)
   
   mat.p <- data.frame(apply(mat.p, 2, as.numeric))  %>%
+    column_to_rownames(var = "Index")
+  mat.hit <- data.frame(apply(mat.hit, 2, as.numeric))  %>%
     column_to_rownames(var = "Index")
   #alternatively, you can keep the variable Order in mat.p, map.log10P then 
   #use mat.p[,-c(1)] in the complexheatmap
@@ -192,19 +213,27 @@ plot_enrichment_heatmap <- function(input_dir = "/Users/qiyan/Dropbox/Horvath_La
   mat.text=apply(mat.p,2,F1,sig.cutoff0=0.01)
   rownames(mat.text)=rownames(mat.p)
   
+  # Combine p value w/ number of hits
+  mat.text_comb <- {}
+  for (k in 1:nrow(mat.text)) {
+    temp <- mat.text[k,]
+    temp <- ifelse(temp!="", paste0(temp, " (", mat.hit[k,], ")"), "")
+    mat.text_comb <- rbind(mat.text_comb, temp)
+  }
+  
   #
   mylayer_fun = function(j, i, x, y, width, height, fill) {
     # since grid.text can also be vectorized
-    grid.text(pindex(mat.text, i, j), x, y, gp = gpar(fontsize = 18))
+    grid.text(pindex(mat.text_comb, i, j), x, y, gp = gpar(fontsize = 20, fontface='bold'))
   }
   #
   #(4) annotation
   #
   top_annotation = HeatmapAnnotation(Class = anno_block(gp =gpar(fill=  c("hotpink","skyblue")), 
-                                                        labels =  c('Hypermethylated with age','Hypomethylated with age'),
+                                                        labels =  c('Increased with age','Decreased with age'),
                                                         labels_gp = gpar(col = c("black","black"),
-                                                                         fontsize = 26,fontface='bold')
-                                                        ,height=unit(20,'mm')))
+                                                                         fontsize = 28,fontface='bold'),
+                                                        height=unit(20,'mm')))
   
   par(mar=c(12,30,3,3))
   col_fun = circlize::colorRamp2(c(0, max(mat.log10P)), c("white", "#FF0000"))
@@ -220,47 +249,63 @@ plot_enrichment_heatmap <- function(input_dir = "/Users/qiyan/Dropbox/Horvath_La
     dplyr::filter(Index %in% rownames(mat.log10P)) %>%
     dplyr::left_join(plot_order, by = "Index") %>%
     dplyr::arrange(order)
+  
   p1.mat<-Heatmap(as.matrix(mat.log10P), 
-                  name = "-log10P", 
+                  name = "-log10P",
+                  
                   #title
                   column_title = "EWAS-TWAS enrichment",
                   column_title_gp = gpar(fontsize = 30,fontface='bold'),
                   column_names_rot = 0,
                   column_names_centered = TRUE,
                   row_title = NULL,
+                  
                   #annotation
-                  # left_annotation = left_annotation,
+                  left_annotation = rowAnnotation(Size = anno_barplot(as.numeric(out.sig$list_size), 
+                                                                      gp=gpar(border ='black', fill="grey")), width = unit(3, "cm"),
+                                                  annotation_name_gp= gpar(fontsize = 22, fontface='bold')),
                   top_annotation=top_annotation,
-                  # right_annotation=right_annotation,
+                  
+                  # Split
                   column_split=rep(1:2, each = length(TISSUE)), # one for hypermethylation and the other one for hypo,
-                  # row_split=row_split,
                   row_gap = unit(.00, "mm"),
                   column_gap = unit(.00, "mm"),
-                  #no cluster
+                  
+                  # no cluster
+                  
                   cluster_columns=F,cluster_rows=F,
-                  #label
+                  # label
                   row_names_side = c("left"),
                   row_labels =paste0(out.sig$Index,'.',out.sig$Desc),
                   row_names_max_width = max_text_width(
                     paste0(out.sig$Index,'.',out.sig$Desc), 
-                    gp = gpar(fontsize = 25)),
+                    gp = gpar(fontsize = 26)),
                   
                   #col
                   col=col_fun,
                   border=T,
-                  layer_fun = mylayer_fun
-                  ,
-                  heatmap_legend_param = list(
-                    title_gp = gpar(fontsize = 25,fontface='bold'),
-                    labels_gp = gpar(fontsize = 25))
-                  ,
-                  column_names_gp = gpar(fontsize = 20),
-                  row_names_gp = gpar(fontsize = 25)
+                  layer_fun = mylayer_fun,
+                  column_names_gp = gpar(fontsize = 28,fontface='bold'),
+                  row_names_gp = gpar(fontsize = 26,fontface='bold'),
                   
+                  # size of heeaetmap
+                  width = unit(57, "cm"),
+                  height = unit(45, "cm"),
                   
+                  # Legend
+                  heatmap_legend_param = list(direction = "horizontal",
+                                              title_gp = gpar(fontsize = 30,fontface='bold'),
+                                              labels_gp = gpar(fontsize = 30,fontface='bold'),
+                                              color_bar="continuous",
+                                              legend_width = unit(15, "cm"))
   )
+  
   #
   png(figure_dir, width = figure_width, height = figure_height)
-  print(p1.mat)
+  draw(p1.mat, heatmap_legend_side = "bottom")
+  # print(p1.mat)
   dev.off()
+  
+  # save the output
+  readr::write_csv(out.sig, file = gsub(".png", ".csv", figure_dir))
 }
