@@ -25,7 +25,7 @@ bg_eutherian <- read_csv("/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_
   dplyr::filter(!(is.na(SYMBOL) & !grepl("cg", CGid))) %>%
   dplyr::filter(!(is.na(SYMBOL)))
 
-bg_AllSpecies_Amin <- list(human = bg_human, mouse = bg_mouse, rat = bg_rat, macaque = bg_macaque, rhesus = bg_rhesus)
+bg_AllSpecies_Amin <- list(human = bg_human, mouse = bg_mouse, rat = bg_rat, macaque = bg_macaque, rhesus = bg_rhesus, eutherian = bg_eutherian)
 save(bg_AllSpecies_Amin, file = "/Users/qiyan/Dropbox/Horvath_Lab/Onging_Project/Aging_Gene_local/Reference_and_SummaryStatistics/Ortholog_Genes/MammalianMethylationConsortium/Annotations_Amin/bg_AllSpecies_Amin.RData")
 
 ###############################
